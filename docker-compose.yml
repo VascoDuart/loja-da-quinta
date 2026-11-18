@@ -1,0 +1,31 @@
+# Ambiente local. Por agora só a base de dados; a API e o frontend
+# entram aqui quando existirem (api/Dockerfile e web/).
+#
+#   cp .env.example .env
+#   docker compose up -d
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?define POSTGRES_USER no .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:-loja}
+      DB_MIGRATOR_PASSWORD: ${DB_MIGRATOR_PASSWORD:?define DB_MIGRATOR_PASSWORD no .env}
+      DB_APP_PASSWORD: ${DB_APP_PASSWORD:?define DB_APP_PASSWORD no .env}
+      DB_READONLY_PASSWORD: ${DB_READONLY_PASSWORD:?define DB_READONLY_PASSWORD no .env}
+    ports:
+      # Só acessível a partir desta máquina (DBeaver incluído)
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./infra/postgres/init-roles.sh:/docker-entrypoint-initdb.d/01-init-roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  db-data:
