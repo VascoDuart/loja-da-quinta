@@ -3,7 +3,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://SUBSTITUIR.onrender.com/api/:path*"
+      "destination": "https://loja-da-quinta-spike.onrender.com/api/:path*"
     }
   ]
 }
