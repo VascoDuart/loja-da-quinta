@@ -1,0 +1,31 @@
+# Checklist OWASP ASVS 4.0 · nível 1
+
+Subconjunto aplicável ao MVP. Atualizar o estado em cada release para a `main` (RNF-01).
+
+Estado: ⬜ por fazer · 🟡 em curso · ✅ feito · ➖ não aplicável
+
+| Capítulo | Requisito (resumo) | Onde | Estado |
+|---|---|---|---|
+| V2 Autenticação | Palavras-passe com pelo menos 12 caracteres, sem regras de composição | `auth` | ⬜ |
+| V2 Autenticação | Palavras-passe verificadas contra listas de palavras-passe comprometidas | `auth` | ⬜ |
+| V2 Autenticação | Proteção contra força bruta (rate limit, bloqueio progressivo) | middleware + `auth` | ⬜ |
+| V2 Autenticação | Hash com algoritmo adaptativo (argon2id) | `auth` | ⬜ |
+| V3 Sessões | Tokens de sessão gerados com CSPRNG e com pelo menos 128 bits | `auth` | ⬜ |
+| V3 Sessões | Logout invalida a sessão no servidor | `auth` | ⬜ |
+| V3 Sessões | Cookies com `Secure`, `HttpOnly` e `SameSite` | `auth` | ⬜ |
+| V3 Sessões | Desativar um utilizador termina as suas sessões | `users` + `auth` | ⬜ |
+| V4 Controlo de acesso | Negado por omissão; verificação no servidor em cada pedido | middleware + serviços | ⬜ |
+| V4 Controlo de acesso | Proteção contra IDOR (verificação de posse/papel no serviço) | serviços | ⬜ |
+| V4 Controlo de acesso | Proteção CSRF nos endpoints com cookie | `auth` | ⬜ |
+| V5 Validação | Validação de entrada contra esquema (OpenAPI) | adaptador HTTP | ⬜ |
+| V5 Validação | Queries parametrizadas em todo o acesso à BD | `postgres.go` (sqlc) | ⬜ |
+| V5 Validação | Saída codificada no contexto (React + CSP) | `web/` | ⬜ |
+| V7 Erros e logs | Erros sem detalhes internos para o cliente | adaptador HTTP | ⬜ |
+| V7 Erros e logs | Logs sem credenciais, tokens nem dados pessoais desnecessários | `platform/logging` | ⬜ |
+| V8 Dados | Dados sensíveis fora de URLs e de `localStorage` | `web/` | ⬜ |
+| V9 Comunicações | TLS em todas as ligações (browser, proxy, BD, e-mail) | infraestrutura | ⬜ |
+| V10 Código malicioso | Dependências analisadas no CI | `security.yml` | ⬜ |
+| V12 Ficheiros | Upload de ficheiros | — | ➖ (fora do MVP) |
+| V13 API | Limites de tamanho e de taxa nos pedidos | middleware | ⬜ |
+| V14 Configuração | Cabeçalhos de segurança (CSP, HSTS, nosniff, frame-ancestors) | `vercel.json` + middleware | ⬜ |
+| V14 Configuração | Segredos fora do código e do repositório | CI + `.gitignore` | 🟡 |
