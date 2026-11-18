@@ -20,6 +20,7 @@ erDiagram
         text role "gestor | funcionario"
         bool active
         timestamptz created_at
+        timestamptz updated_at
     }
     refresh_tokens {
         uuid id PK
@@ -28,6 +29,7 @@ erDiagram
         uuid family_id
         timestamptz expires_at
         timestamptz revoked_at "null"
+        timestamptz created_at
     }
     audit_log {
         bigint id PK
@@ -42,6 +44,8 @@ erDiagram
     categories {
         uuid id PK
         text name UK
+        timestamptz created_at
+        timestamptz updated_at
     }
     products {
         uuid id PK
@@ -54,6 +58,8 @@ erDiagram
         numeric low_stock "12,3"
         bool is_public
         bool active
+        timestamptz created_at
+        timestamptz updated_at
     }
     stock_lots {
         uuid id PK
@@ -62,6 +68,8 @@ erDiagram
         numeric qty_left "12,3 CHECK >= 0"
         date harvested_on
         date expires_on
+        timestamptz created_at
+        timestamptz updated_at
     }
     sales {
         uuid id PK
@@ -71,6 +79,7 @@ erDiagram
         int total_cents
         text status "concluida | anulada"
         timestamptz created_at
+        timestamptz updated_at
     }
     sale_items {
         uuid id PK
@@ -98,6 +107,23 @@ erDiagram
 - **Dinheiro em cêntimos inteiros** e quantidades em `numeric(12,3)` para pesos em kg e volumes em litros ([ADR-0009](../adr/0009-dinheiro-em-centimos.md)).
 - **As linhas da venda guardam o preço e o IVA da altura**, para que mudar um preço não altere vendas antigas.
 - **Datas em UTC** (`timestamptz`); a conversão para Europe/Lisbon é feita na apresentação.
+- **`created_at` e `updated_at` nas tabelas que mudam** (`users`, `categories`, `products`, `stock_lots`, `sales`), ambos `timestamptz NOT NULL DEFAULT now()`. O `updated_at` é mantido por um trigger, para nunca depender de o código se lembrar de o atualizar:
+
+  ```sql
+  CREATE FUNCTION set_updated_at() RETURNS trigger LANGUAGE plpgsql AS $$
+  BEGIN
+    NEW.updated_at := now();
+    RETURN NEW;
+  END $$;
+
+  CREATE TRIGGER products_set_updated_at
+    BEFORE UPDATE ON products
+    FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+  ```
+
+- **Sem `updated_at` onde os registos nunca mudam:** `audit_log` e `stock_movements` são só de acrescento, e `sale_items` é gravado com a venda e não se altera. Um `updated_at` nestas tabelas daria a entender que podem ser editadas. `refresh_tokens` só tem `created_at`; a única alteração possível já fica em `revoked_at`.
+- **O `updated_at` serve também de controlo de concorrência otimista:** a API devolve-o como `ETag` e exige `If-Match` ao editar um produto. Se dois gestores editarem o mesmo produto ao mesmo tempo, o segundo recebe `412 Precondition Failed` em vez de apagar as alterações do primeiro sem saber.
+- **O `updated_at` diz quando, não quem nem o quê:** para isso existe a auditoria.
 - **Enums como `text` com `CHECK`**, em vez de tipos `ENUM` do PostgreSQL, para facilitar migrações.
 - **Auditoria só de acrescento:** o papel `app` tem apenas `INSERT` e `SELECT` em `audit_log`.
 
