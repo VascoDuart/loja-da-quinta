@@ -1,0 +1,33 @@
+# Segredos e ambiente local
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Go
+/api/bin/
+/api/tmp/
+*.test
+*.out
+coverage.*
+
+# Node / Vite
+node_modules/
+/web/dist/
+/web/coverage/
+/web/playwright-report/
+/web/test-results/
+*.tsbuildinfo
+
+# Backups locais
+*.dump
+*.sql.gz
+*.age
+
+# Editores e sistema
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db

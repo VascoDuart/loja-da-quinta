@@ -1,0 +1,9 @@
+* text=auto eol=lf
+*.sh text eol=lf
+*.png binary
+*.jpg binary
+*.ico binary
+
+# Código gerado: esconder nos diffs dos PRs
+web/src/api/** linguist-generated=true
+api/internal/**/gen/** linguist-generated=true
