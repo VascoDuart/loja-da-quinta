@@ -88,3 +88,7 @@ Para usar o DBeaver: ligação PostgreSQL a `localhost:5432`, base de dados `loj
 - [ ] Relatórios e auditoria (UC-08, UC-11)
 - [ ] v1.0.0 em produção
 - [ ] v2: contas de cliente e encomendas para levantamento
+
+## Licença
+
+[MIT](LICENSE). Vulnerabilidades de segurança reportam-se em privado: ver [SECURITY.md](SECURITY.md).
