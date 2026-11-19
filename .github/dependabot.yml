@@ -1,10 +1,46 @@
 version: 2
+
+# Todas as atualizações vão para a dev, nunca diretamente para a main.
+# cooldown: só propõe versões publicadas há pelo menos 14 dias, para não
+# apanhar uma versão comprometida logo no dia em que sai.
+
 updates:
   - package-ecosystem: github-actions
     directory: /
     target-branch: dev
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 14
     commit-message:
       prefix: ci
-  # gomod (api/) e npm (web/) são acrescentados quando esses projetos existirem.
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: gomod
+    directory: /api
+    target-branch: dev
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      go-minor-e-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: docker
+    directory: /api
+    target-branch: dev
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 14
+    commit-message:
+      prefix: build
+      include: scope
+
+  # npm (web/) é acrescentado com o esqueleto do frontend (#6).
