@@ -2,7 +2,7 @@
 #
 #   docker build -t loja-da-quinta-api api/
 
-FROM golang:1.26-alpine AS build
+FROM golang:1.26.10-alpine AS build
 WORKDIR /src
 
 # Dependências primeiro: ficam em cache enquanto go.mod/go.sum não mudarem.
