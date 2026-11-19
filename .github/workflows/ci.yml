@@ -185,6 +185,15 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - name: Instalar (exatamente o que está no package-lock.json)
         run: npm ci --ignore-scripts
+      - name: Código gerado da OpenAPI atualizado (orval)
+        run: |
+          npm run gen
+          if ! git diff --exit-code -- src/api/generated; then
+            echo "::error::O cliente gerado está desatualizado. Corre 'npm run gen' em web/ e faz commit."
+            exit 1
+          fi
+      - name: Formatação (Prettier)
+        run: npm run format:check
       - name: Lint
         run: npm run lint
       - name: Tipos

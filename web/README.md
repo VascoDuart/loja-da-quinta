@@ -2,7 +2,7 @@
 
 Frontend em React + TypeScript, construído com Vite. Ver [docs/architecture/frontend.md](../docs/architecture/frontend.md).
 
-> **Estado:** rotas, layouts e design system "Horta Fresca" com modo claro e escuro ([ADR-0013](../docs/adr/0013-design-system-horta-fresca.md), [tokens e componentes](../docs/design/design-system.md)). As páginas ainda são provisórias.
+> **Estado:** rotas, layouts e design system "Horta Fresca" com modo claro e escuro ([ADR-0013](../docs/adr/0013-design-system-horta-fresca.md), [tokens e componentes](../docs/design/design-system.md)). Cliente da API gerado da OpenAPI, com TanStack Query. As páginas de negócio ainda são provisórias.
 
 ## Correr
 
@@ -22,6 +22,8 @@ Em desenvolvimento, o Vite encaminha `/api` para `http://localhost:8080`, tal co
 | `make web-test` | Testes com Vitest e Testing Library |
 | `make web-lint` | ESLint e verificação de tipos (TypeScript strict) |
 | `make web-build` | Build de produção em `web/dist` |
+| `npm run gen` | Regenera o cliente da API a partir de `openapi/openapi.yaml` (orval) |
+| `npm run format` | Formata o código com Prettier (o CI verifica com `format:check`) |
 
 ## Rotas
 
@@ -42,11 +44,47 @@ Em desenvolvimento, o Vite encaminha `/api` para `http://localhost:8080`, tal co
 
 As rotas estão em [`src/app/routes.tsx`](src/app/routes.tsx), com o título, os papéis e se aparecem no menu. Cada página é carregada só quando é visitada. A guarda que aplica os papéis chega com a autenticação (#8); a autorização real é sempre da API.
 
+## Falar com a API
+
+1. O contrato está em `openapi/openapi.yaml`. Depois de o mudar, corre `npm run gen`.
+2. O orval gera em `src/api/generated/` (não se edita à mão):
+   - `endpoints/`: funções e hooks do TanStack Query (`useGetReadiness()`…);
+   - `model/`: tipos;
+   - `zod/`: esquemas para validar formulários.
+3. Todos os pedidos passam por [`src/api/http.ts`](src/api/http.ts):
+   - mesma origem (`/api/v1`) e cookies `same-origin`;
+   - qualquer resposta fora de 2xx vira um `ApiError` com o problem+json e o request ID;
+   - `errorMessage(err)` dá uma mensagem para pessoas, sem detalhes técnicos;
+   - ao fim de 3 s aparece o aviso "A acordar o servidor"; ao fim de 75 s desiste (ADR-0007).
+4. O TanStack Query repete uma vez falhas de rede e 5xx, nunca 4xx nem escritas ([`queryClient.ts`](src/api/queryClient.ts)).
+
+## Testes
+
+- **Vitest + Testing Library** para componentes e lógica.
+- **MSW** simula a API ([`src/test/msw.ts`](src/test/msw.ts)): os testes nunca vão à rede, e um pedido sem resposta definida falha o teste.
+- `renderWithQuery()` dá a cada teste um QueryClient novo.
+
+## Deploy (Vercel)
+
+[`vercel.json`](vercel.json):
+
+- `/api/*` vai para a API na Render; tudo o resto vai para `index.html` (SPA).
+- Cabeçalhos de segurança em todas as respostas: CSP só com `'self'` (sem `unsafe-inline`), HSTS, `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy`, `Permissions-Policy`.
+- `/assets/*` com cache de um ano (os nomes têm hash).
+- As fontes nunca são embebidas como `data:` no CSS, para a CSP poder manter `font-src 'self'`.
+- O URL da API e a versão de staging ficam definidos na #7.
+
+Um teste ([`vercel-config.test.ts`](src/test/vercel-config.test.ts)) falha se o rewrite ou os cabeçalhos forem removidos.
+
 ## Estrutura
 
 ```
 web/src/
-├── main.tsx            arranque: router e estilos base
+├── main.tsx            arranque: tema, QueryClient, router
+├── api/
+│   ├── http.ts         cliente HTTP (ApiError, timeouts, aviso de lentidão)
+│   ├── queryClient.ts  política de cache e novas tentativas
+│   └── generated/      gerado pelo orval (não editar)
 ├── app/
 │   ├── routes.tsx      todas as rotas e o menu do backoffice
 │   ├── layouts/        PublicLayout, BackofficeLayout
@@ -55,11 +93,12 @@ web/src/
 ├── shared/
 │   ├── styles/tokens.css  tokens de cor, tipo e espaço (claro e escuro)
 │   ├── theme/          ThemeToggle e preferência de tema
-│   └── ui/             Button, Chip, StockPill, SeasonTip, ícones
+│   ├── lib/format.ts   €, kg, L e datas em pt-PT (hora de Lisboa)
+│   └── ui/             Button, Chip, StockPill, SeasonTip, WakingServer, ícones
 ├── features/           uma pasta por funcionalidade
 │   ├── catalogo/  auth/  painel/  venda/  stock/
 │   └── produtos/  relatorios/  utilizadores/  auditoria/
-└── test/setup.ts       configuração do Vitest
+└── test/              setup do Vitest, MSW, renderWithQuery
 ```
 
 ## Regras de segurança no lint
