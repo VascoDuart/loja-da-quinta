@@ -7,7 +7,8 @@ GOLANGCI_LINT := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v
 SQLC_IMAGE    := sqlc/sqlc:1.31.1
 
 .PHONY: help up down db-up db-down db-reset db-psql \
-        api-gen api-sqlc api-test api-test-integration api-lint api-run
+        api-gen api-sqlc api-test api-test-integration api-lint api-run \
+        web-install web-dev web-test web-lint web-build
 
 help: ## Mostra os alvos disponíveis
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  %-22s %s\n", $$1, $$2}'
@@ -52,3 +53,20 @@ api-lint: ## golangci-lint (inclui gosec e depguard)
 
 api-run: ## Corre a API localmente contra o PostgreSQL do compose
 	cd api && DATABASE_URL="postgres://app:$${DB_APP_PASSWORD:-troca-me-app}@localhost:5432/loja?sslmode=disable" go run ./cmd/api
+
+# --- Frontend (React + TS) --------------------------------------------------
+
+web-install: ## Instala as dependências exatas do package-lock.json
+	cd web && npm ci
+
+web-dev: ## Servidor de desenvolvimento em http://localhost:5173 (/api vai para a API local)
+	cd web && npm run dev
+
+web-test: ## Testes do frontend (Vitest)
+	cd web && npm test
+
+web-lint: ## ESLint e verificação de tipos
+	cd web && npm run lint && npm run typecheck
+
+web-build: ## Build de produção em web/dist
+	cd web && npm run build

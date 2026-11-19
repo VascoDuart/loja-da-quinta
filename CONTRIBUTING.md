@@ -63,15 +63,15 @@ Correm em cada PR para a `dev` ou a `main`. A proteção dos branches exige dois
 
 | Check obrigatório | Workflow | Inclui |
 |---|---|---|
-| `ci-ok` | `ci.yml` | `api-lint`, `api-generated`, `api-test` (unitários e integração, com `-race`), `api-build` (docker compose e smoke test), `pr-origin` |
+| `ci-ok` | `ci.yml` | `api-lint`, `api-generated`, `api-test` (unitários e integração, com `-race`), `api-build` (docker compose e smoke test), `web` (lint, tipos, testes, build, `npm audit`), `pr-origin` |
 | `security-ok` | `security.yml` | `gitleaks`, `govulncheck`, `codeql`, `trivy` |
 
-- Os jobs da API só correm quando `api/`, `openapi/` ou o compose mudam. Um job saltado conta como sucesso.
+- Os jobs da API só correm quando `api/`, `openapi/` ou o compose mudam; o `web` só quando `web/` ou `openapi/` mudam. Um job saltado conta como sucesso.
 - O `pr-origin` só corre em PRs para a `main` e recusa tudo o que não venha da `dev` ou de `hotfix/*`.
 - O `security.yml` corre também todas as segundas-feiras, para apanhar vulnerabilidades novas em código que não mudou.
-- O Dependabot propõe atualizações (Actions, Go e imagens Docker) para a `dev`, só com versões publicadas há pelo menos 14 dias.
+- O Dependabot propõe atualizações (Actions, Go, npm e imagens Docker) para a `dev`, só com versões publicadas há pelo menos 14 dias.
 
-Para correr o mesmo localmente: `make api-lint`, `make api-test` e `make api-test-integration`.
+Para correr o mesmo localmente: `make api-lint`, `make api-test`, `make api-test-integration`, `make web-lint` e `make web-test`.
 
 ## Definição de pronto
 
