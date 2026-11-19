@@ -19,7 +19,7 @@ flowchart TB
 
     subgraph SHARED["shared/"]
         direction LR
-        UI["UI partilhada<br/><small>shadcn/ui + Tailwind · formatação de €, kg, L e datas pt-PT</small>"]
+        UI["UI partilhada<br/><small>design system Horta Fresca (tokens CSS, claro e escuro) · formatação de €, kg, L e datas pt-PT</small>"]
         FORMS["Formulários<br/><small>react-hook-form + zod (esquemas gerados)</small>"]
     end
 
@@ -62,7 +62,9 @@ web/src/
 │   ├── relatorios/
 │   └── utilizadores/
 ├── shared/
-│   ├── ui/         componentes shadcn/ui
+│   ├── ui/         componentes base (Button, Chip, StockPill, SeasonTip, ícones)
+│   ├── theme/      tema claro/escuro (ThemeToggle)
+│   ├── styles/     tokens.css
 │   ├── lib/        formatação (€, kg, L, datas), utilitários
 │   └── hooks/
 └── api/            gerado pelo orval (não editar à mão)
@@ -85,6 +87,6 @@ web/src/
 | Rotas | React Router |
 | Estado do servidor | TanStack Query |
 | Formulários | react-hook-form + zod |
-| Componentes | shadcn/ui + Tailwind CSS |
+| Componentes | Próprios, com variáveis CSS ([ADR-0013](../adr/0013-design-system-horta-fresca.md), [design system](../design/design-system.md)) |
 | Cliente da API | orval (gerado da OpenAPI) |
 | Testes | Vitest, Testing Library, MSW, Playwright, axe-core |

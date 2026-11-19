@@ -26,7 +26,7 @@ flowchart LR
 
 | Camada | Tecnologia |
 |---|---|
-| Frontend | React + TypeScript, Vite, React Router, TanStack Query, shadcn/ui, Tailwind |
+| Frontend | React + TypeScript, Vite, React Router, TanStack Query, design system próprio com modo claro e escuro |
 | Backend | Go, `net/http`, arquitetura hexagonal, `pgx` + `sqlc`, `goose` |
 | Contrato | OpenAPI 3.1, com código gerado para os dois lados (`oapi-codegen`, `orval`) |
 | Base de dados | PostgreSQL 16 |
@@ -41,6 +41,7 @@ flowchart LR
 | Requisitos | [Casos de uso](docs/requirements/use-cases.md) · [Funcionais](docs/requirements/functional.md) · [Não funcionais](docs/requirements/non-functional.md) |
 | Arquitetura | [Visão geral (C4)](docs/architecture/overview.md) · [Backend](docs/architecture/backend.md) · [Frontend](docs/architecture/frontend.md) · [Modelo de dados](docs/architecture/data-model.md) |
 | Decisões | [ADRs](docs/adr/README.md) |
+| Design | [Design system](docs/design/design-system.md) |
 | Segurança | [Controlos](docs/security/controls.md) · [Modelo de ameaças](docs/security/threat-model.md) · [Matriz de autorização](docs/security/authz-matrix.md) · [ASVS](docs/security/asvs-checklist.md) · [Política](SECURITY.md) |
 | Processo | [Branches, commits e definição de pronto](CONTRIBUTING.md) |
 

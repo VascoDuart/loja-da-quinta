@@ -18,3 +18,4 @@ Para um novo ADR, copia [`template.md`](template.md) e usa o número seguinte.
 | [0010](0010-stock-por-lotes-fefo.md) | Stock por lotes com saída FEFO | Aceite |
 | [0011](0011-venda-nao-e-documento-fiscal.md) | A venda ao balcão não é documento fiscal | Aceite |
 | [0012](0012-estrategia-de-branches.md) | `main` + `dev` com branches curtos | Aceite |
+| [0013](0013-design-system-horta-fresca.md) | Design system "Horta Fresca" com modo claro e escuro | Aceite |
