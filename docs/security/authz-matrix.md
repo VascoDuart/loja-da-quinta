@@ -5,6 +5,7 @@ Tudo é negado por omissão. Cada linha transforma-se num teste de integração:
 | Endpoint | Visitante | Funcionário | Gestor |
 |---|:---:|:---:|:---:|
 | `GET /public/catalog` | ✓ | ✓ | ✓ |
+| `GET /public/products/{id}/image` | ✓ | ✓ | ✓ |
 | `POST /auth/login` · `/auth/refresh` · `/auth/logout` | ✓ | ✓ | ✓ |
 | `GET /stock` · `GET /products` | 401 | ✓ | ✓ |
 | `POST /stock/lots` | 401 | ✓ | ✓ |
@@ -12,6 +13,7 @@ Tudo é negado por omissão. Cada linha transforma-se num teste de integração:
 | `POST /stock/adjustments` | 401 | 403 | ✓ |
 | `POST /sales/{id}/void` | 401 | 403 | ✓ |
 | `POST` · `PUT` · `DELETE /products` · `/categories` | 401 | 403 | ✓ |
+| `PUT` · `DELETE /products/{id}/image` | 401 | 403 | ✓ |
 | `GET /reports/*` | 401 | 403 | ✓ |
 | `* /users` | 401 | 403 | ✓ |
 | `GET /audit` | 401 | 403 | ✓ |

@@ -27,6 +27,8 @@
 | **Tampering** | Pedido de venda alterado com um preço mais baixo. | O servidor ignora preços enviados pelo cliente e recalcula a partir do catálogo. | Teste unitário do serviço de vendas |
 | **Tampering** | SQL injection num filtro de relatório. | Só queries parametrizadas (sqlc); sem SQL dinâmico concatenado. | gosec + revisão de PR |
 | **Repudiation** | Funcionário nega ter feito uma quebra ou uma venda. | Auditoria só de acrescento, com autor, IP e hora; o papel `app` não pode alterá-la. | Teste de permissões na BD |
+| **Tampering** | Upload de um ficheiro malicioso disfarçado de imagem (polyglot, SVG com script, bomba de descompressão). | Tipo pelo conteúdo, limite de píxeis, reprocessamento para JPEG, original descartado, `nosniff` ([ADR-0014](../adr/0014-imagens-dos-produtos-no-postgresql.md)). | Testes com ficheiros maliciosos |
+| **Information disclosure** | Fotografia carregada com a localização GPS da quinta nos metadados. | O reprocessamento descarta todos os metadados EXIF. | Teste que confirma a ausência de EXIF |
 | **Information disclosure** | O catálogo público revela quantidades ou margens. | DTO público separado, que devolve só o nível de disponibilidade. | Teste de contrato |
 | **Information disclosure** | Erros expõem stack traces ou SQL. | Erros `problem+json` genéricos; detalhes só nos logs. | Teste de integração |
 | **Information disclosure** | Segredo commitado no repositório. | gitleaks no CI; `.env` no `.gitignore`. | Workflow `security.yml` |
