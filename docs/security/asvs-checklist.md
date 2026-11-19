@@ -24,7 +24,7 @@ Estado: ⬜ por fazer · 🟡 em curso · ✅ feito · ➖ não aplicável
 | V7 Erros e logs | Logs sem credenciais, tokens nem dados pessoais desnecessários | `platform/logging` | ⬜ |
 | V8 Dados | Dados sensíveis fora de URLs e de `localStorage` | `web/` | ⬜ |
 | V9 Comunicações | TLS em todas as ligações (browser, proxy, BD, e-mail) | infraestrutura | ⬜ |
-| V10 Código malicioso | Dependências analisadas no CI | `security.yml` | ⬜ |
+| V10 Código malicioso | Dependências analisadas no CI | `security.yml` (govulncheck, Trivy, CodeQL) | ✅ |
 | V12 Ficheiros | Upload de ficheiros | — | ➖ (fora do MVP) |
 | V13 API | Limites de tamanho e de taxa nos pedidos | middleware | ⬜ |
 | V14 Configuração | Cabeçalhos de segurança (CSP, HSTS, nosniff, frame-ancestors) | `vercel.json` + middleware | ⬜ |
