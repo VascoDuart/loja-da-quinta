@@ -1,12 +1,13 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { describe, expect, it } from 'vitest'
 
+import { renderWithQuery } from '../test/render'
 import { backofficeNav, routes } from './routes'
 
 function renderAt(path: string) {
   const router = createMemoryRouter(routes, { initialEntries: [path] })
-  render(<RouterProvider router={router} />)
+  renderWithQuery(<RouterProvider router={router} />)
   return router
 }
 
