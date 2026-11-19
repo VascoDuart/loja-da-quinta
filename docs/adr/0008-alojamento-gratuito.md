@@ -19,7 +19,10 @@ O orçamento é 0 € por mês. A API em Go precisa de um processo sempre dispon
 
 ## Consequências
 
-- A API adormece após 15 minutos sem pedidos; o primeiro pedido pode demorar 30 a 60 segundos (RNF-04).
+- A API adormece após 15 minutos sem pedidos. A documentação da Render indica cerca de 1 minuto para acordar; o spike #3 mediu 12,5 s (RNF-04, [ADR-0007](0007-mesma-origem-via-rewrite.md)).
+- **O plano Hobby da Vercel é só para uso pessoal e não comercial.** Serve enquanto a app for um projeto de portefólio. Se a quinta a usar para vender, é preciso mudar o frontend para um serviço que permita uso comercial (por exemplo, Cloudflare Pages) ou passar a um plano pago.
+- Se as 750 horas mensais da Render acabarem, todos os serviços gratuitos da conta ficam suspensos até ao mês seguinte.
+- Alternativa avaliada para a API: Google Cloud Run (arranque a frio abaixo de 1 s para Go, mas exige registar um cartão). Fica como plano B.
 - Staging usa um segundo serviço gratuito na Render e um branch da Neon. Como os serviços adormecem, deve caber nas 750 horas mensais; a confirmar no primeiro mês.
 - As condições dos planos gratuitos mudam: reavaliar este ADR a cada 6 meses.
 - A aplicação não depende de SDKs proprietários; mudar de fornecedor é mudar a configuração de deploy.
