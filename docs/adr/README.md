@@ -12,7 +12,7 @@ Para um novo ADR, copia [`template.md`](template.md) e usa o número seguinte.
 | [0004](0004-pgx-sqlc-goose.md) | pgx + sqlc em vez de ORM; goose para migrações | Aceite |
 | [0005](0005-autenticacao-propria.md) | Autenticação própria com argon2id, JWT curto e refresh rotativo | Aceite |
 | [0006](0006-spa-com-vite.md) | SPA com Vite em vez de Next.js | Aceite |
-| [0007](0007-mesma-origem-via-rewrite.md) | Mesma origem através do rewrite da Vercel | Aceite (a validar) |
+| [0007](0007-mesma-origem-via-rewrite.md) | Mesma origem através do rewrite da Vercel | Aceite (validado no spike #3) |
 | [0008](0008-alojamento-gratuito.md) | Alojamento gratuito: Vercel, Render, Neon e Resend | Aceite |
 | [0009](0009-dinheiro-em-centimos.md) | Dinheiro em cêntimos e quantidades em `numeric(12,3)` | Aceite |
 | [0010](0010-stock-por-lotes-fefo.md) | Stock por lotes com saída FEFO | Aceite |

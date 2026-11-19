@@ -64,7 +64,7 @@ flowchart LR
 
 O browser só fala com a Vercel. O rewrite de `/api/*` põe a API na **mesma origem** ([ADR-0007](../adr/0007-mesma-origem-via-rewrite.md)): não é preciso CORS e o cookie `SameSite=Strict` funciona.
 
-> **Risco a validar logo no início:** confirmar que o tempo limite do proxy da Vercel aguenta o arranque a frio da Render. Se não aguentar, a alternativa é um domínio próprio partilhado pelos dois serviços.
+> **Validado no spike #3:** o proxy da Vercel espera entre 91 e 120 s, e o arranque a frio medido na Render foi de 12,5 s. Ver [ADR-0007](../adr/0007-mesma-origem-via-rewrite.md).
 
 ## Ambientes
 

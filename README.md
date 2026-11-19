@@ -78,7 +78,7 @@ Para usar o DBeaver: ligação PostgreSQL a `localhost:5432`, base de dados `loj
 
 - [x] Requisitos, arquitetura, ADRs e modelo de ameaças
 - [x] Estrutura do repositório e PostgreSQL local
-- [ ] Spike: rewrite da Vercel contra o arranque a frio da Render (ADR-0007)
+- [x] Spike: rewrite da Vercel contra o arranque a frio da Render (ADR-0007)
 - [ ] Esqueleto da API (health checks, middleware, configuração) e pipeline de CI
 - [ ] Esqueleto do frontend e deploy em staging
 - [ ] Autenticação e utilizadores (UC-01, UC-02)
