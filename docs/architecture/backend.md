@@ -10,7 +10,7 @@ flowchart TB
 
     subgraph MW["Middleware (por ordem)"]
         direction LR
-        M1[Recover] --> M2[Request ID] --> M3[Logging] --> M4[Cabeçalhos] --> M5[CORS] --> M6[Rate limit] --> M7[JWT] --> M8[RBAC]
+        M1[Recover] --> M2[Request ID] --> M3[Logging] --> M4[Cabeçalhos] --> M5[Rate limit] --> M6[Tamanho do corpo] --> M7[Timeout] --> M8[JWT] --> M9[RBAC]
     end
 
     HTTP["Adaptador HTTP<br/><small>handlers gerados (oapi-codegen) · validação contra a OpenAPI · DTO ↔ domínio · erros problem+json</small>"]
@@ -65,6 +65,33 @@ internal/sales/
 ├── http.go        handlers: traduz DTOs e erros
 └── *_test.go      unitários (fakes) e de integração (testcontainers)
 ```
+
+## Middleware
+
+Ordem em `internal/platform/httpserver/server.go`. O primeiro é o mais exterior.
+
+| # | Middleware | Porquê aqui |
+|---|---|---|
+| 1 | Recover | Primeiro, para apanhar um panic em qualquer camada abaixo |
+| 2 | Request ID | Antes do log, para cada linha e cada erro terem o ID |
+| 3 | Access log | Regista o status final, incluindo 429 e 500 |
+| 4 | Cabeçalhos de segurança | Aplicam-se também às respostas de erro |
+| 5 | Rate limit | Antes de qualquer trabalho caro |
+| 6 | Tamanho do corpo (1 MiB) | Antes de ler o corpo |
+| 7 | Timeout (10 s) | Prazo propagado pelo contexto até à base de dados |
+| 8 | Validação OpenAPI | Só nas rotas da spec; recusa pedidos fora do contrato com 400 |
+| — | JWT e RBAC | Chegam com a autenticação (#8) |
+
+**Sem CORS:** a API está na mesma origem que o frontend, graças ao rewrite da Vercel ([ADR-0007](../adr/0007-mesma-origem-via-rewrite.md)). Sem cabeçalhos CORS, o browser bloqueia pedidos de outros sites, que é o comportamento que queremos.
+
+## Health checks
+
+| Endpoint | Responde 200 quando | Usado por |
+|---|---|---|
+| `GET /api/v1/healthz` | O processo está vivo (nunca consulta a BD) | Health check da Render |
+| `GET /api/v1/readyz` | A base de dados responde em menos de 2 s | Smoke tests do deploy |
+
+Se o `/healthz` dependesse da base de dados, uma falha na Neon faria a Render reiniciar a API em ciclo, sem resolver nada.
 
 ## Regras de dependência
 
