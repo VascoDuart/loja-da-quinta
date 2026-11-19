@@ -8,6 +8,7 @@ erDiagram
     users ||--o{ stock_movements : "regista"
     categories ||--o{ products : "agrupa"
     products ||--o{ stock_lots : "tem"
+    products ||--o{ product_images : "tem até 2 versões"
     products ||--o{ sale_items : "vendido em"
     sales ||--|{ sale_items : "contém"
     stock_lots ||--o{ stock_movements : "movimenta"
@@ -60,6 +61,16 @@ erDiagram
         bool active
         timestamptz created_at
         timestamptz updated_at
+    }
+    product_images {
+        uuid product_id PK "FK"
+        text size PK "thumb | large"
+        bytea data "JPEG reprocessado"
+        text content_type "image/jpeg"
+        int width
+        int height
+        bytea sha256 "versão no URL"
+        timestamptz created_at
     }
     stock_lots {
         uuid id PK
@@ -124,6 +135,7 @@ erDiagram
 - **Sem `updated_at` onde os registos nunca mudam:** `audit_log` e `stock_movements` são só de acrescento, e `sale_items` é gravado com a venda e não se altera. Um `updated_at` nestas tabelas daria a entender que podem ser editadas. `refresh_tokens` só tem `created_at`; a única alteração possível já fica em `revoked_at`.
 - **O `updated_at` serve também de controlo de concorrência otimista:** a API devolve-o como `ETag` e exige `If-Match` ao editar um produto. Se dois gestores editarem o mesmo produto ao mesmo tempo, o segundo recebe `412 Precondition Failed` em vez de apagar as alterações do primeiro sem saber.
 - **O `updated_at` diz quando, não quem nem o quê:** para isso existe a auditoria.
+- **Imagens em `product_images`** ([ADR-0014](../adr/0014-imagens-dos-produtos-no-postgresql.md)): duas versões por produto (`thumb` 160 px, `large` 800 px), sempre reprocessadas em JPEG pela API. O `sha256` entra no URL, que é imutável e fica na cache da CDN. Trocar a imagem apaga e volta a inserir as duas linhas na mesma transação; por isso não há `updated_at`. `ON DELETE CASCADE` a partir de `products`.
 - **Enums como `text` com `CHECK`**, em vez de tipos `ENUM` do PostgreSQL, para facilitar migrações.
 - **Auditoria só de acrescento:** o papel `app` tem apenas `INSERT` e `SELECT` em `audit_log`.
 

@@ -18,7 +18,9 @@ Prioridade MoSCoW: **M** obrigatório, **S** devia ter, **C** podia ter.
 | RF-12 | Todos os dias às 07:00 (hora de Lisboa), o gestor recebe um e-mail com stock baixo e lotes a expirar. | S | UC-09 |
 | RF-13 | O gestor consulta vendas por dia, semana e mês, os produtos mais vendidos e os totais por método de pagamento. | M | UC-08 |
 | RF-14 | O gestor exporta relatórios em CSV. | C | UC-08 |
-| RF-15 | O catálogo público mostra os produtos visíveis, o preço por unidade, a época e a disponibilidade (disponível, pouco, esgotado), sem mostrar quantidades exatas. | M | UC-10 |
+| RF-15 | O catálogo público mostra os produtos visíveis, com imagem, o preço por unidade, a época e a disponibilidade (disponível, pouco, esgotado), sem mostrar quantidades exatas. | M | UC-10 |
 | RF-16 | Todas as alterações de dados e inícios de sessão ficam na auditoria: quem, o quê, quando e de que IP. | M | UC-11 |
 | RF-17 | O gestor pesquisa a auditoria por utilizador, entidade e período. | S | UC-11 |
 | RF-18 | O ecrã de venda funciona em tablet, com toque, pesquisa por nome e teclado numérico para pesos e volumes. | S | UC-06 |
+| RF-19 | O gestor carrega uma imagem por produto (JPEG, PNG ou WebP, até 5 MB). O sistema verifica o formato pelo conteúdo, redimensiona, volta a codificar e descarta o original. | M | UC-03 |
+| RF-20 | A página pública mostra uma dica da época com os produtos em destaque nesse mês. | S | UC-10 |

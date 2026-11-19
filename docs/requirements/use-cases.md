@@ -7,7 +7,7 @@ O MVP cobre a gestão interna da loja e um **catálogo público**. Contas de cli
 | Dentro do MVP | Fora do MVP |
 |---|---|
 | Backoffice com papéis **Gestor** e **Funcionário** | Contas de cliente e encomendas para levantamento (v2) |
-| Produtos e categorias: preço por kg, litro, unidade, molho ou dúzia, IVA e época | Fotografias de produtos (v2) |
+| Produtos e categorias: preço por kg, litro, unidade, molho ou dúzia, IVA, época e imagem ([ADR-0014](../adr/0014-imagens-dos-produtos-no-postgresql.md)) | Várias imagens por produto, galeria |
 | Stock por lotes (colheita e validade) com saída FEFO | Pagamentos online (v3) |
 | Vendas ao balcão em tablet, com anulação pelo gestor | Faturação certificada pela AT (ver [ADR-0011](../adr/0011-venda-nao-e-documento-fiscal.md)) |
 | Relatórios e alertas diários de stock baixo e validade | Várias lojas, app nativa, integração com balanças |
