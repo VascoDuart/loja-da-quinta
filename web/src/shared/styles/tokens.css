@@ -1,0 +1,127 @@
+/*
+ * Design system "Horta Fresca" (ADR-0013). Todos os componentes usam só
+ * estes tokens; o modo escuro redefine-os e nada mais muda.
+ *
+ * Ordem de prioridade do tema:
+ *   1. escolha manual: <html data-theme="light|dark">
+ *   2. tema do sistema: prefers-color-scheme
+ */
+:root {
+  /* Superfícies */
+  --color-page: #f6f8f4;
+  --color-surface: #ffffff;
+  --color-image: #f1f4ef;
+  --color-line: #dde5dc;
+
+  /* Texto */
+  --color-text: #17251b;
+  --color-muted: #4e5e53;
+
+  /* Verde: ações, seleção, navegação */
+  --color-green: #2f7d32;
+  --color-on-green: #ffffff;
+  --color-green-text: #1f5e23;
+  --color-folha: #e3f1e1;
+
+  /* Barra lateral e cabeçalho */
+  --color-side: #2f7d32;
+  --color-side-text: #e3f1e1;
+  --color-side-line: #4e9652;
+  --color-side-active: #ffffff;
+  --color-side-active-text: #1f5e23;
+
+  /* Dica da época */
+  --color-tip: #fdf0df;
+  --color-tip-text: #6b3405;
+
+  /* Estados de stock (cor e texto, nunca só cor) */
+  --color-ok: #e3f1e1;
+  --color-ok-text: #1f5e23;
+  --color-warn: #fdf0df;
+  --color-warn-text: #8a4106;
+  --color-bad: #fbe4e2;
+  --color-bad-text: #9b1c14;
+
+  /* Tipografia */
+  --font-sans: 'Plus Jakarta Sans Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.75rem;
+  --text-2xl: 2.75rem;
+
+  /* Forma e espaço */
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 0.875rem;
+  --radius-pill: 999px;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --touch: 44px;
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--color-green) 45%, transparent);
+
+  color-scheme: light;
+}
+
+/* Tema do sistema, quando não há escolha manual. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --color-page: #0f1511;
+    --color-surface: #171e19;
+    --color-image: #1e2620;
+    --color-line: #2a342d;
+    --color-text: #e8eee9;
+    --color-muted: #a3b0a6;
+    --color-green: #2f7d32;
+    --color-on-green: #ffffff;
+    --color-green-text: #a7ddaa;
+    --color-folha: #1c3121;
+    --color-side: #1e5225;
+    --color-side-text: #cfe6d0;
+    --color-side-line: #3a6e40;
+    --color-side-active: #e3f1e1;
+    --color-side-active-text: #1f5e23;
+    --color-tip: #33260f;
+    --color-tip-text: #f5c886;
+    --color-ok: #1c3121;
+    --color-ok-text: #a7ddaa;
+    --color-warn: #3d2c14;
+    --color-warn-text: #f5c27a;
+    --color-bad: #3f1e1b;
+    --color-bad-text: #f4a7a0;
+    color-scheme: dark;
+  }
+}
+
+/* Escolha manual do modo escuro. */
+:root[data-theme='dark'] {
+  --color-page: #0f1511;
+  --color-surface: #171e19;
+  --color-image: #1e2620;
+  --color-line: #2a342d;
+  --color-text: #e8eee9;
+  --color-muted: #a3b0a6;
+  --color-green: #2f7d32;
+  --color-on-green: #ffffff;
+  --color-green-text: #a7ddaa;
+  --color-folha: #1c3121;
+  --color-side: #1e5225;
+  --color-side-text: #cfe6d0;
+  --color-side-line: #3a6e40;
+  --color-side-active: #e3f1e1;
+  --color-side-active-text: #1f5e23;
+  --color-tip: #33260f;
+  --color-tip-text: #f5c886;
+  --color-ok: #1c3121;
+  --color-ok-text: #a7ddaa;
+  --color-warn: #3d2c14;
+  --color-warn-text: #f5c27a;
+  --color-bad: #3f1e1b;
+  --color-bad-text: #f4a7a0;
+  color-scheme: dark;
+}
