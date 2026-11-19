@@ -32,6 +32,7 @@ jobs:
       pull-requests: read
     outputs:
       api: ${{ steps.filter.outputs.api }}
+      web: ${{ steps.filter.outputs.web }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - id: filter
@@ -42,6 +43,10 @@ jobs:
               - 'api/**'
               - 'openapi/**'
               - 'docker-compose.yml'
+              - '.github/workflows/ci.yml'
+            web:
+              - 'web/**'
+              - 'openapi/**'
               - '.github/workflows/ci.yml'
 
   # ADR-0012: a main só recebe PRs da dev ou de hotfix/*.
@@ -161,11 +166,41 @@ jobs:
         if: always()
         run: docker compose down -v
 
+  # Frontend: lint, tipos, testes, build e dependências vulneráveis.
+  web:
+    name: web
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: web/.nvmrc
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Instalar (exatamente o que está no package-lock.json)
+        run: npm ci --ignore-scripts
+      - name: Lint
+        run: npm run lint
+      - name: Tipos
+        run: npm run typecheck
+      - name: Testes
+        run: npm test
+      - name: Build
+        run: npm run build
+      - name: Dependências com vulnerabilidades altas ou críticas
+        run: npm audit --audit-level=high
+
   # Único check obrigatório do CI: falha se algum job falhou ou foi cancelado.
   ci-ok:
     name: ci-ok
     if: always()
-    needs: [changes, pr-origin, api-lint, api-generated, api-test, api-build]
+    needs: [changes, pr-origin, api-lint, api-generated, api-test, api-build, web]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
