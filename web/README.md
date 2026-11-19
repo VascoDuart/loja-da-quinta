@@ -2,7 +2,7 @@
 
 Frontend em React + TypeScript, construído com Vite. Ver [docs/architecture/frontend.md](../docs/architecture/frontend.md).
 
-> **Estado:** esqueleto com rotas e layouts. O aspeto visual (design system, componentes) espera pela escolha entre as propostas de design.
+> **Estado:** rotas, layouts e design system "Horta Fresca" com modo claro e escuro ([ADR-0013](../docs/adr/0013-design-system-horta-fresca.md), [tokens e componentes](../docs/design/design-system.md)). As páginas ainda são provisórias.
 
 ## Correr
 
@@ -51,7 +51,11 @@ web/src/
 │   ├── routes.tsx      todas as rotas e o menu do backoffice
 │   ├── layouts/        PublicLayout, BackofficeLayout
 │   ├── NotFoundPage.tsx
-│   └── base.css        estilos neutros provisórios
+│   └── layouts.css     base global e layouts
+├── shared/
+│   ├── styles/tokens.css  tokens de cor, tipo e espaço (claro e escuro)
+│   ├── theme/          ThemeToggle e preferência de tema
+│   └── ui/             Button, Chip, StockPill, SeasonTip, ícones
 ├── features/           uma pasta por funcionalidade
 │   ├── catalogo/  auth/  painel/  venda/  stock/
 │   └── produtos/  relatorios/  utilizadores/  auditoria/
@@ -61,4 +65,4 @@ web/src/
 ## Regras de segurança no lint
 
 - `dangerouslySetInnerHTML` está proibido (XSS).
-- `localStorage` está proibido: tokens e dados de sessão nunca vão para o browser de forma persistente (ADR-0005).
+- `localStorage` está proibido: tokens e dados de sessão nunca vão para o browser de forma persistente (ADR-0005). A única exceção, explícita, é a preferência de tema em `shared/theme/theme.ts`.

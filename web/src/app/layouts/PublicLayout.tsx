@@ -1,27 +1,29 @@
 import { Link, Outlet } from 'react-router'
 
+import { ThemeToggle } from '../../shared/theme/ThemeToggle'
 import { useDocumentTitle } from '../useDocumentTitle'
 
-/**
- * Layout da área pública (catálogo). Só estrutura: o aspeto visual chega
- * com o design system escolhido.
- */
+/** Área pública: cabeçalho verde, conteúdo numa coluna legível em telemóvel. */
 export function PublicLayout() {
   useDocumentTitle()
   return (
-    <div className="layout layout--public">
-      <header className="layout__header">
-        <Link to="/" className="layout__brand">
+    <div className="public">
+      <header className="public__header">
+        <Link to="/" className="brand brand--on-green">
+          <span className="brand__mark" aria-hidden="true" />
           Loja da Quinta
         </Link>
-        <nav aria-label="Principal">
-          <Link to="/entrar">Entrar</Link>
+        <nav aria-label="Principal" className="public__nav">
+          <Link to="/entrar" className="public__link">
+            Entrar
+          </Link>
+          <ThemeToggle tone="side" compact />
         </nav>
       </header>
-      <main className="layout__main">
+      <main className="public__main">
         <Outlet />
       </main>
-      <footer className="layout__footer">
+      <footer className="public__footer">
         <small>Encomendas online em breve.</small>
       </footer>
     </div>

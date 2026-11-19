@@ -5,8 +5,8 @@ import { useDocumentTitle } from './useDocumentTitle'
 export function NotFoundPage() {
   useDocumentTitle()
   return (
-    <main className="layout__main">
-      <h1>Página não encontrada</h1>
+    <main className="public__main">
+      <h1 className="page-title">Página não encontrada</h1>
       <p>Este endereço não existe.</p>
       <Link to="/">Voltar ao catálogo</Link>
     </main>
