@@ -1,0 +1,19 @@
+# sqlc gera código Go tipado a partir de SQL escrito à mão (ADR-0004).
+# O esquema vem das migrações; as queries ficam em queries/.
+# Corre com: make api-sqlc (usa a imagem Docker oficial, sem instalar nada).
+#
+# Ainda não há queries: o primeiro módulo com tabelas (#8, autenticação)
+# acrescenta queries/<modulo>.sql e o código passa a ser gerado.
+version: "2"
+sql:
+  - engine: postgresql
+    schema: migrations
+    queries: queries
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/platform/db/sqlcgen
+        sql_package: pgx/v5
+        emit_interface: true
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true

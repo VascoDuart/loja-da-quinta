@@ -54,12 +54,15 @@ flowchart LR
 
 ## Correr localmente
 
-Requisitos: Docker. Mais tarde, Go 1.26+ e Node 24+.
+Requisitos: Docker. Para desenvolver a API, Go 1.26+; para o frontend (mais tarde), Node 24+.
 
 ```bash
-cp .env.example .env      # muda as palavras-passe
-docker compose up -d      # PostgreSQL 16 com os papéis migrator, app e readonly
+cp .env.example .env            # muda as palavras-passe
+docker compose up -d --build    # PostgreSQL 16, migrações e API
+curl localhost:8080/api/v1/healthz
 ```
+
+Comandos da API (testes, lint, geração de código): ver [api/README.md](api/README.md) ou `make help`.
 
 Para usar o DBeaver: ligação PostgreSQL a `localhost:5432`, base de dados `loja`, utilizador `readonly` e a palavra-passe definida no `.env`.
 
@@ -79,7 +82,8 @@ Para usar o DBeaver: ligação PostgreSQL a `localhost:5432`, base de dados `loj
 - [x] Requisitos, arquitetura, ADRs e modelo de ameaças
 - [x] Estrutura do repositório e PostgreSQL local
 - [x] Spike: rewrite da Vercel contra o arranque a frio da Render (ADR-0007)
-- [ ] Esqueleto da API (health checks, middleware, configuração) e pipeline de CI
+- [x] Esqueleto da API (health checks, middleware, configuração)
+- [ ] Pipeline de CI
 - [ ] Esqueleto do frontend e deploy em staging
 - [ ] Autenticação e utilizadores (UC-01, UC-02)
 - [ ] Produtos e categorias (UC-03), catálogo público (UC-10)

@@ -1,0 +1,9 @@
+# Gera os tipos, a interface do servidor e a spec embebida a partir de
+# ../openapi/openapi.yaml (ADR-0003). Corre com: make api-gen
+package: gen
+output: internal/httpapi/gen/openapi.gen.go
+generate:
+  models: true
+  std-http-server: true
+  strict-server: true
+  embedded-spec: true

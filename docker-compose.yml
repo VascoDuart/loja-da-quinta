@@ -1,8 +1,9 @@
-# Ambiente local. Por agora só a base de dados; a API e o frontend
-# entram aqui quando existirem (api/Dockerfile e web/).
+# Ambiente local: PostgreSQL, migrações e API. O frontend entra com a #6.
 #
 #   cp .env.example .env
-#   docker compose up -d
+#   docker compose up -d --build
+#
+# A API fica em http://localhost:8080/api/v1/healthz
 
 services:
   db:
@@ -26,6 +27,30 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # Corre uma vez, com o papel migrator, e termina.
+  migrate:
+    build: ./api
+    entrypoint: ["/migrate"]
+    environment:
+      MIGRATIONS_DATABASE_URL: postgres://migrator:${DB_MIGRATOR_PASSWORD}@db:5432/${POSTGRES_DB:-loja}?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # A API liga-se com o papel app, que não tem permissões de DDL.
+  api:
+    build: ./api
+    restart: unless-stopped
+    environment:
+      APP_ENV: development
+      LOG_LEVEL: debug
+      DATABASE_URL: postgres://app:${DB_APP_PASSWORD}@db:5432/${POSTGRES_DB:-loja}?sslmode=disable
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   db-data:

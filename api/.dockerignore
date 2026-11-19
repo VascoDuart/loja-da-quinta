@@ -1,0 +1,7 @@
+*.md
+*_test.go
+.golangci.yml
+bin/
+tmp/
+coverage.*
+.env*
