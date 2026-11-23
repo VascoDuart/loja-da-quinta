@@ -1,5 +1,5 @@
-/// <reference types="vitest/config" />
 import react from '@vitejs/plugin-react'
+import { configDefaults } from 'vitest/config'
 import { defineConfig, type Plugin } from 'vite'
 
 // Commit do build. A Vercel define VERCEL_GIT_COMMIT_SHA; localmente é "dev".
@@ -28,13 +28,16 @@ export default defineConfig({
     port: 5173,
     // Em desenvolvimento, /api vai para a API local, como o rewrite da
     // Vercel faz em produção (ADR-0007): o frontend só vê uma origem.
+    // API_PROXY_TARGET permite apontar para a API de staging (ex.: testes E2E
+    // locais sem Docker).
     proxy: {
-      '/api': 'http://localhost:8080',
+      '/api': { target: process.env.API_PROXY_TARGET ?? 'http://localhost:8080', changeOrigin: true },
     },
   },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,
+    exclude: [...configDefaults.exclude, 'e2e/**'],
   },
 })
