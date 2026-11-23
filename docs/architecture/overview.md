@@ -71,5 +71,26 @@ O browser só fala com a Vercel. O rewrite de `/api/*` põe a API na **mesma ori
 | Ambiente | Origem | Frontend | API | Base de dados |
 |---|---|---|---|---|
 | Local | máquina do programador | Vite dev server | `go run` ou Docker | PostgreSQL no `docker compose` |
-| Staging | branch `dev` | deploy do branch `dev` na Vercel | serviço gratuito na Render | branch `staging` da Neon |
+| Staging | branch `dev` | projeto `loja-da-quinta-staging` na Vercel | `loja-da-quinta-api-staging` na Render (Frankfurt) | branch `staging` da Neon (Frankfurt) |
 | Produção | branch `main` | Vercel (produção) | serviço gratuito na Render | branch principal da Neon |
+
+### Staging
+
+Endereço: <https://loja-da-quinta-staging.vercel.app>. Cada merge na `dev` publica-se sozinho, pelo workflow `deploy-staging.yml`:
+
+1. **Migrações** na Neon com o papel `migrator`, antes de qualquer código novo chegar à API.
+2. **Deploy da API** na Render, pedido pelo Deploy Hook. O Auto-Deploy está desligado para a API nunca arrancar antes das migrações.
+3. **Espera pela versão**: o workflow só avança quando o `/api/v1/healthz` e a `<meta name="app-version">` do frontend mostram o commit acabado de entrar. A Vercel publica a `dev` sozinha.
+4. **E2E** com Playwright contra o staging publicado: testes de fumo, acessibilidade WCAG 2.1 AA em modo claro e escuro, cabeçalhos de segurança da Vercel e a versão publicada. Correm em desktop, tablet e telemóvel.
+
+Como chega à API certa: o `vercel.json` tem uma regra só para o domínio de staging (`has: host`), que encaminha `/api/*` para a API de staging. Qualquer outro domínio vai para a de produção.
+
+Papéis na base de dados ([infra/neon/init-roles.sql](../../infra/neon/init-roles.sql)):
+
+| Papel | Quem o usa | Pode |
+|---|---|---|
+| `migrator` | o workflow, nas migrações | DDL no schema `loja` |
+| `app` | a API na Render | só DML (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) |
+| `readonly` | o DBeaver | só `SELECT` |
+
+Segredos no GitHub: `STAGING_MIGRATIONS_DATABASE_URL` (papel `migrator`) e `RENDER_STAGING_DEPLOY_HOOK`. O `DATABASE_URL` da API (papel `app`) está só na Render.

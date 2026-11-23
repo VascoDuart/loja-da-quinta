@@ -97,7 +97,7 @@ func TestAPIAgainstRealDatabase(t *testing.T) {
 	defer pool.Close()
 
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := httpserver.NewHandler(cfg, log, &httpapi.Server{Handler: health.NewHandler(pool, log)})
+	h, err := httpserver.NewHandler(cfg, log, &httpapi.Server{Handler: health.NewHandler(pool, log, cfg.Version)})
 	if err != nil {
 		t.Fatal(err)
 	}

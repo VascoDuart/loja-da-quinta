@@ -53,6 +53,8 @@ flowchart LR
 - **Mesma origem** ([ADR-0007](docs/adr/0007-mesma-origem-via-rewrite.md)): a Vercel encaminha `/api/*` para a API, sem CORS e com cookies `SameSite=Strict`.
 - **Dinheiro em cêntimos** ([ADR-0009](docs/adr/0009-dinheiro-em-centimos.md)) e **stock por lotes com FEFO** ([ADR-0010](docs/adr/0010-stock-por-lotes-fefo.md)).
 
+**Staging:** <https://loja-da-quinta-staging.vercel.app>, publicado a cada merge na `dev` (ver [ambientes](docs/architecture/overview.md#staging)).
+
 ## Correr localmente
 
 Requisitos: Docker. Para desenvolver a API, Go 1.26+; para o frontend (mais tarde), Node 24+.
@@ -64,6 +66,14 @@ curl localhost:8080/api/v1/healthz
 ```
 
 Comandos da API (testes, lint, geração de código): ver [api/README.md](api/README.md) ou `make help`.
+
+Testes E2E (Playwright), a partir de `web/`:
+
+```bash
+npx playwright install chromium   # só da primeira vez
+npm run e2e                       # arranca o Vite e usa a API em localhost:8080
+API_PROXY_TARGET=https://loja-da-quinta-api-staging.onrender.com npm run e2e   # sem Docker, contra a API de staging
+```
 
 Para usar o DBeaver: ligação PostgreSQL a `localhost:5432`, base de dados `loja`, utilizador `readonly` e a palavra-passe definida no `.env`.
 
@@ -85,7 +95,7 @@ Para usar o DBeaver: ligação PostgreSQL a `localhost:5432`, base de dados `loj
 - [x] Spike: rewrite da Vercel contra o arranque a frio da Render (ADR-0007)
 - [x] Esqueleto da API (health checks, middleware, configuração)
 - [x] Pipeline de CI e análise de segurança
-- [ ] Esqueleto do frontend e deploy em staging
+- [x] Esqueleto do frontend e deploy em staging
 - [ ] Autenticação e utilizadores (UC-01, UC-02)
 - [ ] Produtos e categorias (UC-03), catálogo público (UC-10)
 - [ ] Stock por lotes (UC-04, UC-05, UC-09)

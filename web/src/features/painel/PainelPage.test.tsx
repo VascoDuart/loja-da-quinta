@@ -19,7 +19,7 @@ it('com a base de dados em baixo mostra uma mensagem simples, a referência e pe
       calls++
       return calls <= 2
         ? problem(503, 'A base de dados não está acessível.', 'ref-42')
-        : HttpResponse.json({ status: 'ok' })
+        : HttpResponse.json({ status: 'ok', version: 'test' })
     }),
   )
   renderWithQuery(<PainelPage />)

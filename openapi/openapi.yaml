@@ -56,11 +56,15 @@ components:
   schemas:
     Health:
       type: object
-      required: [status]
+      required: [status, version]
       properties:
         status:
           type: string
           enum: [ok]
+        version:
+          type: string
+          description: Commit da versão em execução ("dev" em desenvolvimento). O deploy usa-o para saber quando a versão nova já está no ar.
+          example: 3c81f75
     Problem:
       type: object
       required: [type, title, status]

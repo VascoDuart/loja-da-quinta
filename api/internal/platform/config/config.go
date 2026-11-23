@@ -26,6 +26,10 @@ type Config struct {
 	Port     int
 	LogLevel string
 
+	// Version é o commit em execução. A Render define RENDER_GIT_COMMIT em
+	// cada deploy; APP_VERSION permite fixá-la noutros ambientes.
+	Version string
+
 	DatabaseURL     string
 	DatabaseMaxConn int32
 
@@ -56,6 +60,7 @@ func FromLookup(lookup func(string) (string, bool)) (Config, error) {
 		Env:              Env(r.str("APP_ENV", string(EnvDevelopment))),
 		Port:             r.int("PORT", 8080),
 		LogLevel:         r.str("LOG_LEVEL", "info"),
+		Version:          r.str("APP_VERSION", r.str("RENDER_GIT_COMMIT", "dev")),
 		DatabaseURL:      r.required("DATABASE_URL"),
 		DatabaseMaxConn:  r.int32("DATABASE_MAX_CONNS", 5),
 		TrustedProxyHops: r.int("TRUSTED_PROXY_HOPS", 0),

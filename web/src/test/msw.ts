@@ -3,8 +3,8 @@ import { setupServer } from 'msw/node'
 
 /** Respostas por omissão: a API está saudável. Cada teste pode substituí-las. */
 export const handlers = [
-  http.get('*/api/v1/healthz', () => HttpResponse.json({ status: 'ok' })),
-  http.get('*/api/v1/readyz', () => HttpResponse.json({ status: 'ok' })),
+  http.get('*/api/v1/healthz', () => HttpResponse.json({ status: 'ok', version: 'test' })),
+  http.get('*/api/v1/readyz', () => HttpResponse.json({ status: 'ok', version: 'test' })),
 ]
 
 export const server = setupServer(...handlers)

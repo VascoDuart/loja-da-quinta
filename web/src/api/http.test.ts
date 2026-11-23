@@ -13,7 +13,7 @@ describe('apiFetch', () => {
   it('devolve dados, status e cabeçalhos no formato do orval', async () => {
     const res = await apiFetch<{ data: { status: string }; status: number }>('/api/v1/healthz')
     expect(res.status).toBe(200)
-    expect(res.data).toEqual({ status: 'ok' })
+    expect(res.data).toEqual({ status: 'ok', version: 'test' })
   })
 
   it('transforma problem+json num ApiError com o request ID', async () => {

@@ -25,16 +25,18 @@ type Handler struct {
 	db      Pinger
 	log     *slog.Logger
 	timeout time.Duration
+	version string
 }
 
 // NewHandler cria o handler. O ping à base de dados tem um prazo curto, para
-// o /readyz responder depressa mesmo com a base de dados em baixo.
-func NewHandler(db Pinger, log *slog.Logger) *Handler {
-	return &Handler{db: db, log: log, timeout: 2 * time.Second}
+// o /readyz responder depressa mesmo com a base de dados em baixo. A versão
+// (commit) vai nas respostas, para o deploy saber que versão está no ar.
+func NewHandler(db Pinger, log *slog.Logger, version string) *Handler {
+	return &Handler{db: db, log: log, timeout: 2 * time.Second, version: version}
 }
 
 func (h *Handler) GetHealth(context.Context, gen.GetHealthRequestObject) (gen.GetHealthResponseObject, error) {
-	return gen.GetHealth200JSONResponse{Status: gen.Ok}, nil
+	return gen.GetHealth200JSONResponse{Status: gen.Ok, Version: h.version}, nil
 }
 
 func (h *Handler) GetReadiness(ctx context.Context, _ gen.GetReadinessRequestObject) (gen.GetReadinessResponseObject, error) {
@@ -53,7 +55,7 @@ func (h *Handler) GetReadiness(ctx context.Context, _ gen.GetReadinessRequestObj
 			},
 		}, nil
 	}
-	return gen.GetReadiness200JSONResponse{Status: gen.Ok}, nil
+	return gen.GetReadiness200JSONResponse{Status: gen.Ok, Version: h.version}, nil
 }
 
 func ptr[T any](v T) *T { return &v }
