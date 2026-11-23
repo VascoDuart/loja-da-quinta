@@ -26,7 +26,7 @@ Decisão em [ADR-0013](../adr/0013-design-system-horta-fresca.md). Código em `w
 | `--color-green-text` | `#1F5E23` | `#A7DDAA` | Texto verde, links |
 | `--color-folha` | `#E3F1E1` | `#1C3121` | Destaques suaves (total, selecionado) |
 | `--color-side` | `#2F7D32` | `#1E5225` | Barra lateral, cabeçalho |
-| `--color-side-text` | `#E3F1E1` | `#CFE6D0` | Texto da barra lateral |
+| `--color-side-text` | `#FFFFFF` | `#CFE6D0` | Texto da barra lateral (branco: `#E3F1E1` dava 4,37:1 e falhava o AA) |
 | `--color-side-active` | `#FFFFFF` | `#E3F1E1` | Item ativo do menu |
 | `--color-tip` / `-text` | `#FDF0DF` / `#6B3405` | `#33260F` / `#F5C886` | Dica da época |
 | `--color-ok` / `-text` | `#E3F1E1` / `#1F5E23` | `#1C3121` / `#A7DDAA` | Disponível |

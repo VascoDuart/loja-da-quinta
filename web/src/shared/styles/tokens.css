@@ -25,7 +25,7 @@
 
   /* Barra lateral e cabeçalho */
   --color-side: #2f7d32;
-  --color-side-text: #e3f1e1;
+  --color-side-text: #ffffff; /* 5,1:1 sobre o verde; #e3f1e1 dava 4,37:1 e falhava o WCAG AA */
   --color-side-line: #4e9652;
   --color-side-active: #ffffff;
   --color-side-active-text: #1f5e23;
