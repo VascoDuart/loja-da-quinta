@@ -4,3 +4,6 @@ node_modules
 package-lock.json
 src/api/generated
 *.md
+test-results
+playwright-report
+blob-report
