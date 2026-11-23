@@ -14,13 +14,15 @@ import * as zod from 'zod';
  * @summary O processo está vivo
  */
 export const GetHealthResponse = zod.object({
-  "status": zod.enum(['ok'])
+  "status": zod.enum(['ok']),
+  "version": zod.string().describe('Commit da versão em execução ("dev" em desenvolvimento). O deploy usa-o para saber quando a versão nova já está no ar.')
 })
 
 /**
  * @summary O processo está pronto (BD acessível)
  */
 export const GetReadinessResponse = zod.object({
-  "status": zod.enum(['ok'])
+  "status": zod.enum(['ok']),
+  "version": zod.string().describe('Commit da versão em execução ("dev" em desenvolvimento). O deploy usa-o para saber quando a versão nova já está no ar.')
 })
 

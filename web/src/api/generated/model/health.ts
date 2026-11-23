@@ -11,4 +11,6 @@ import type { HealthStatus } from './healthStatus';
 
 export interface Health {
   status: HealthStatus;
+  /** Commit da versão em execução ("dev" em desenvolvimento). O deploy usa-o para saber quando a versão nova já está no ar. */
+  version: string;
 }

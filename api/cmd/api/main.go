@@ -44,7 +44,7 @@ func run() error {
 	defer pool.Close()
 
 	api := &httpapi.Server{
-		Handler: health.NewHandler(pool, log),
+		Handler: health.NewHandler(pool, log, cfg.Version),
 	}
 
 	handler, err := httpserver.NewHandler(cfg, log, api)

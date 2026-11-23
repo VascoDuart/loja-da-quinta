@@ -31,6 +31,27 @@ func TestDefaults(t *testing.T) {
 	}
 }
 
+func TestVersion(t *testing.T) {
+	cases := []struct {
+		env  map[string]string
+		want string
+	}{
+		{map[string]string{}, "dev"},
+		{map[string]string{"RENDER_GIT_COMMIT": "abc123"}, "abc123"},
+		{map[string]string{"RENDER_GIT_COMMIT": "abc123", "APP_VERSION": "fixa"}, "fixa"},
+	}
+	for _, c := range cases {
+		c.env["DATABASE_URL"] = "postgres://app:x@localhost/loja"
+		cfg, err := FromLookup(lookupFrom(c.env))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Version != c.want {
+			t.Errorf("Version = %q, queria %q", cfg.Version, c.want)
+		}
+	}
+}
+
 func TestInvalidConfigListsEveryProblem(t *testing.T) {
 	_, err := FromLookup(lookupFrom(map[string]string{
 		"APP_ENV":         "prod",
