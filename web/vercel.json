@@ -3,6 +3,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
+      "has": [{ "type": "host", "value": "loja-da-quinta-staging.vercel.app" }],
+      "destination": "https://loja-da-quinta-api-staging.onrender.com/api/:path*"
+    },
+    {
+      "source": "/api/:path*",
       "destination": "https://loja-da-quinta-api.onrender.com/api/:path*"
     },
     {

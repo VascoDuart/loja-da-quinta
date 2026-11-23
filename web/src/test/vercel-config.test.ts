@@ -3,24 +3,37 @@ import { describe, expect, it } from 'vitest'
 import rawConfig from '../../vercel.json'
 
 type Header = { key: string; value: string }
+type Rewrite = { source: string; destination: string; has?: { type: string; value: string }[] }
 type VercelConfig = {
-  rewrites: { source: string; destination: string }[]
+  rewrites: Rewrite[]
   headers: { source: string; headers: Header[] }[]
 }
 
 const config = rawConfig as VercelConfig
 const global = config.headers.find((h) => h.source === '/(.*)')?.headers ?? []
 const header = (key: string) => global.find((h) => h.key === key)?.value ?? ''
+const fallbackRule = config.rewrites.find((r) => r.destination === '/index.html')
 
 describe('vercel.json (ADR-0007 e controlos de segurança)', () => {
-  it('encaminha /api para a API antes do fallback da SPA', () => {
-    expect(config.rewrites[0]?.source).toBe('/api/:path*')
-    expect(config.rewrites[0]?.destination).toMatch(/^https:\/\/[^/]+\.onrender\.com\/api\/:path\*$/)
-    expect(config.rewrites[1]?.destination).toBe('/index.html')
+  it('no domínio de staging, /api vai para a API de staging', () => {
+    const staging = config.rewrites[0]
+    expect(staging?.has).toEqual([{ type: 'host', value: 'loja-da-quinta-staging.vercel.app' }])
+    expect(staging?.destination).toBe('https://loja-da-quinta-api-staging.onrender.com/api/:path*')
+  })
+
+  it('nos outros domínios, /api vai para a API de produção', () => {
+    const prod = config.rewrites[1]
+    expect(prod?.has).toBeUndefined()
+    expect(prod?.destination).toBe('https://loja-da-quinta-api.onrender.com/api/:path*')
+  })
+
+  it('as regras de /api vêm antes do fallback da SPA', () => {
+    const lastApi = config.rewrites.findLastIndex((r) => r.source === '/api/:path*')
+    expect(lastApi).toBeLessThan(config.rewrites.indexOf(fallbackRule as Rewrite))
   })
 
   it('o fallback da SPA não apanha /api', () => {
-    const fallback = new RegExp(`^${config.rewrites[1]?.source ?? ''}$`)
+    const fallback = new RegExp(`^${fallbackRule?.source ?? ''}$`)
     expect(fallback.test('/app/venda')).toBe(true)
     expect(fallback.test('/api/v1/healthz')).toBe(false)
   })
