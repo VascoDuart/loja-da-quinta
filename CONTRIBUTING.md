@@ -73,6 +73,12 @@ Correm em cada PR para a `dev` ou a `main`. A proteção dos branches exige dois
 
 Para correr o mesmo localmente: `make api-lint`, `make api-test`, `make api-test-integration`, `make web-lint` e `make web-test`.
 
+## Deploy de staging
+
+Cada merge na `dev` corre o `deploy-staging.yml`: migrações na Neon, deploy da API na Render, espera até a API e o frontend estarem no commit do merge, e os testes E2E contra <https://loja-da-quinta-staging.vercel.app>. Se o E2E falhar, o relatório do Playwright fica nos artefactos do run durante 14 dias.
+
+Um `deploy-staging` vermelho bloqueia a release: a `dev` só vai para a `main` com o E2E de staging verde no mesmo commit. Para repetir um deploy sem novo commit: *Actions → deploy-staging → Run workflow*.
+
 ## Definição de pronto
 
 ### Para entrar na `dev`
