@@ -1,0 +1,16 @@
+# Configuração do gitleaks (workflow security.yml): as regras por omissão,
+# mais uma exceção estreita.
+title = "Loja da Quinta"
+
+[extend]
+useDefault = true
+
+# O oapi-codegen embebe a OpenAPI comprimida e em base64 em openapi.gen.go
+# (swaggerSpec). Qualquer mudança no contrato muda esse texto, e uma linha de
+# base64 com muita entropia pode calhar na regra generic-api-key (falso
+# positivo, visto no PR #37). A exceção é só para esta regra e este ficheiro
+# gerado; todas as outras regras continuam a aplicar-se a ele.
+[[allowlists]]
+description = "Spec OpenAPI embebida (base64) no código gerado"
+targetRules = ["generic-api-key"]
+paths = ['''api/internal/httpapi/gen/openapi\.gen\.go''']
