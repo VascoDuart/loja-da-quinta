@@ -75,7 +75,7 @@ Para correr o mesmo localmente: `make api-lint`, `make api-test`, `make api-test
 
 ## Deploy de staging
 
-Cada merge na `dev` corre o `deploy-staging.yml`: migrações na Neon, deploy da API na Render, espera até a API e o frontend estarem no commit do merge, e os testes E2E contra <https://loja-da-quinta-staging.vercel.app>. Se o E2E falhar, o relatório do Playwright fica nos artefactos do run durante 14 dias.
+Cada merge na `dev` corre o `deploy-staging.yml`: migrações na Neon, deploy da API na Render, espera até a API e o frontend estarem no commit do merge, e os testes E2E contra <https://loja-da-quinta-staging.vercel.app>. Se o E2E falhar, as capturas de ecrã ficam nos artefactos do run durante 7 dias. Traces e relatórios HTML não sobem: o repositório é público e teriam as palavras-passe das contas de teste.
 
 Um `deploy-staging` vermelho bloqueia a release: a `dev` só vai para a `main` com o E2E de staging verde no mesmo commit. Para repetir um deploy sem novo commit: *Actions → deploy-staging → Run workflow*.
 
