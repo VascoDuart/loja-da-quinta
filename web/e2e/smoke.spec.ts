@@ -54,7 +54,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       })
     }
 
-    for (const path of ['/app/painel', '/app/utilizadores']) {
+    for (const path of ['/app/painel', '/app/utilizadores', '/app/produtos']) {
       test(`${path} não tem problemas de acessibilidade WCAG 2.1 AA`, async ({ page }) => {
         await login(page, 'gestor', path)
         await expectNoAxeViolations(page)

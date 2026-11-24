@@ -38,7 +38,7 @@ Tudo por variáveis de ambiente, validadas no arranque. Com um valor inválido, 
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error`. Logs em JSON fora de `development` |
 | `DATABASE_MAX_CONNS` | `5` | O plano gratuito da Neon tem poucas ligações |
 | `TRUSTED_PROXY_HOPS` | `0` | Proxies à frente da API. Vercel + Render = `2` |
-| `RATE_LIMIT_RPS` / `RATE_LIMIT_BURST` | `10` / `20` | Pedidos por segundo por IP |
+| `RATE_LIMIT_RPS` / `RATE_LIMIT_BURST` | `20` / `100` | Pedidos por segundo por IP e rajada máxima (uma página com miniaturas faz dezenas de pedidos seguidos) |
 | `MAX_BODY_BYTES` | `1048576` | 1 MiB |
 | `REQUEST_TIMEOUT` | `10s` | Prazo de cada pedido, propagado até à BD |
 | `SHUTDOWN_TIMEOUT` | `15s` | Espera pelos pedidos em curso ao encerrar |

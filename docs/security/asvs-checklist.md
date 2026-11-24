@@ -25,10 +25,10 @@ Estado: ⬜ por fazer · 🟡 em curso · ✅ feito · ➖ não aplicável
 | V8 Dados | Dados sensíveis fora de URLs e de `localStorage` | `web/` (testado no E2E) | ✅ |
 | V9 Comunicações | TLS em todas as ligações (browser, proxy, BD, e-mail) | infraestrutura | ⬜ |
 | V10 Código malicioso | Dependências analisadas no CI | `security.yml` (govulncheck, Trivy, CodeQL) | ✅ |
-| V12 Ficheiros | Tamanho máximo do upload (5 MB) e de píxeis (40 MP) | `catalog` | ⬜ |
-| V12 Ficheiros | Tipo verificado pelo conteúdo, nunca pela extensão nem pelo `Content-Type` | `catalog` | ⬜ |
-| V12 Ficheiros | Ficheiro reprocessado; o original não é guardado nem servido | `catalog` | ⬜ |
-| V12 Ficheiros | Ficheiros servidos com `Content-Type` fixo e `nosniff` | `catalog` + middleware | ⬜ |
-| V13 API | Limites de tamanho e de taxa nos pedidos | middleware | ⬜ |
+| V12 Ficheiros | Tamanho máximo do upload (5 MB) e de píxeis (40 MP) | `catalog` (píxeis lidos antes de descodificar) | ✅ |
+| V12 Ficheiros | Tipo verificado pelo conteúdo, nunca pela extensão nem pelo `Content-Type` | `catalog` | ✅ |
+| V12 Ficheiros | Ficheiro reprocessado; o original não é guardado nem servido | `catalog` (EXIF e GPS removidos, testado) | ✅ |
+| V12 Ficheiros | Ficheiros servidos com `Content-Type` fixo e `nosniff` | `catalog` + middleware | ✅ |
+| V13 API | Limites de tamanho e de taxa nos pedidos | middleware (1 MiB; 5 MB só no upload de imagens) | ✅ |
 | V14 Configuração | Cabeçalhos de segurança (CSP, HSTS, nosniff, frame-ancestors) | `vercel.json` + middleware | ⬜ |
 | V14 Configuração | Segredos fora do código e do repositório | CI + `.gitignore` | 🟡 |

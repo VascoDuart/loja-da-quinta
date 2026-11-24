@@ -18,3 +18,4 @@ Vírgula flutuante produz erros de arredondamento (`0.1 + 0.2 != 0.3`). Há prod
 
 - Totais exatos e reproduzíveis.
 - Conversões na fronteira (formulários e apresentação), cobertas por testes.
+- **Na API, as quantidades viajam em milésimos inteiros** (campos `…Milli`: `2500` = 2,5 kg), pela mesma razão dos cêntimos: o JSON nunca leva números com casas decimais. Para unidades, molhos e dúzias, o valor tem de ser múltiplo de 1000.

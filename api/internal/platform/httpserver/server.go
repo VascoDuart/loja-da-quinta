@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/getkin/kin-openapi/openapi3filter"
@@ -33,6 +34,15 @@ type Security struct {
 	Authorize openapi3filter.AuthenticationFunc
 }
 
+// Upload de imagens dos produtos (ADR-0014): até 5 MB, e uma foto grande
+// demora mais a processar do que um pedido normal.
+var imageUpload = regexp.MustCompile(`^` + BasePath + `/products/[^/]+/image$`)
+
+var uploadLimits = mw.RouteLimits{
+	Match:  func(r *http.Request) bool { return r.Method == http.MethodPut && imageUpload.MatchString(r.URL.Path) },
+	Limits: mw.Limits{MaxBody: 5<<20 + 64<<10, Timeout: 30 * time.Second},
+}
+
 // NewHandler devolve o handler HTTP completo: middleware, validação contra a
 // OpenAPI (incluindo os papéis de cada operação) e as rotas geradas.
 func NewHandler(cfg config.Config, log *slog.Logger, api gen.StrictServerInterface, sec Security) (http.Handler, error) {
@@ -49,6 +59,14 @@ func NewHandler(cfg config.Config, log *slog.Logger, api gen.StrictServerInterfa
 		SilenceServersWarning: true,
 		Options:               openapi3filter.Options{AuthenticationFunc: sec.Authorize},
 		ErrorHandlerWithOpts: func(_ context.Context, err error, w http.ResponseWriter, r *http.Request, opts nethttpmiddleware.ErrorHandlerOpts) {
+			// Antes da segurança: o validador lê o corpo antes de verificar a
+			// sessão, e um corpo grande demais chegaria aqui como falha de
+			// segurança (401) em vez de 413.
+			var tooBig *http.MaxBytesError
+			if errors.As(err, &tooBig) {
+				httpx.WriteProblem(w, r, http.StatusRequestEntityTooLarge, "O pedido é demasiado grande.")
+				return
+			}
 			if writeSecurityError(w, r, err) {
 				return
 			}
@@ -97,8 +115,8 @@ func NewHandler(cfg config.Config, log *slog.Logger, api gen.StrictServerInterfa
 		mw.SecurityHeaders(cfg.Env != config.EnvDevelopment),
 		mw.ClientIPContext(cfg.TrustedProxyHops),
 		mw.RateLimit(cfg.RateLimitRPS, cfg.RateLimitBurst),
-		mw.MaxBody(cfg.MaxBodyBytes),
-		mw.Timeout(cfg.RequestTimeout),
+		mw.MaxBody(cfg.MaxBodyBytes, uploadLimits),
+		mw.Timeout(cfg.RequestTimeout, uploadLimits),
 		authenticate,
 	), nil
 }

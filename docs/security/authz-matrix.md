@@ -17,12 +17,12 @@ O valor por omissão da spec é `bearerAuth: []`, que não deixa ninguém entrar
 | `GET /public/products/{id}/image` | ✓ | ✓ | ✓ |
 | `POST /auth/login` · `/auth/refresh` · `/auth/logout` | ✓ | ✓ | ✓ |
 | `GET /me` | 401 | ✓ | ✓ |
-| `GET /stock` · `GET /products` | 401 | ✓ | ✓ |
+| `GET /stock` · `GET /products` · `GET /products/{id}` · `GET /categories` | 401 | ✓ | ✓ |
 | `POST /stock/lots` | 401 | ✓ | ✓ |
 | `POST /sales` | 401 | ✓ | ✓ |
 | `POST /stock/adjustments` | 401 | 403 | ✓ |
 | `POST /sales/{id}/void` | 401 | 403 | ✓ |
-| `POST` · `PUT` · `DELETE /products` · `/categories` | 401 | 403 | ✓ |
+| `POST` · `PUT` · `DELETE /products` · `POST` · `PATCH` · `DELETE /categories` | 401 | 403 | ✓ |
 | `PUT` · `DELETE /products/{id}/image` | 401 | 403 | ✓ |
 | `GET /reports/*` | 401 | 403 | ✓ |
 | `GET` · `POST /users` · `PATCH /users/{id}` | 401 | 403 | ✓ |

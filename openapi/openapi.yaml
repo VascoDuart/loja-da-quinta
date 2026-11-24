@@ -13,6 +13,8 @@ tags:
     description: Sessão dos utilizadores internos (ADR-0005)
   - name: users
     description: Gestão dos utilizadores internos pelo gestor (UC-02)
+  - name: catalog
+    description: Categorias, produtos e imagens (UC-03, ADR-0014)
 paths:
   /healthz:
     get:
@@ -218,6 +220,328 @@ paths:
           $ref: "#/components/responses/Problem"
         "422":
           $ref: "#/components/responses/Problem"
+  /categories:
+    get:
+      tags: [catalog]
+      operationId: listCategories
+      summary: Lista as categorias, com o número de produtos de cada uma
+      security:
+        - bearerAuth: [funcionario, gestor]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+    post:
+      tags: [catalog]
+      operationId: createCategory
+      summary: Cria uma categoria
+      security:
+        - bearerAuth: [gestor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "201":
+          description: Criada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /categories/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    patch:
+      tags: [catalog]
+      operationId: renameCategory
+      summary: Muda o nome de uma categoria
+      security:
+        - bearerAuth: [gestor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CategoryInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Category"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+    delete:
+      tags: [catalog]
+      operationId: deleteCategory
+      summary: Apaga uma categoria sem produtos
+      security:
+        - bearerAuth: [gestor]
+      responses:
+        "204":
+          description: Apagada
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+  /products:
+    get:
+      tags: [catalog]
+      operationId: listProducts
+      summary: Lista todos os produtos, ativos e inativos
+      security:
+        - bearerAuth: [funcionario, gestor]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+    post:
+      tags: [catalog]
+      operationId: createProduct
+      summary: Cria um produto
+      security:
+        - bearerAuth: [gestor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "201":
+          $ref: "#/components/responses/ProductWithETag"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /products/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [catalog]
+      operationId: getProduct
+      summary: Um produto, com o ETag para o editar
+      security:
+        - bearerAuth: [funcionario, gestor]
+      responses:
+        "200":
+          $ref: "#/components/responses/ProductWithETag"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+    put:
+      tags: [catalog]
+      operationId: updateProduct
+      summary: Substitui os dados de um produto
+      description: |
+        Exige If-Match com a versão lida (o ETag, ou o campo version). Se
+        outra pessoa mudou o produto entretanto, responde 412 e não grava:
+        nenhuma alteração se perde sem aviso.
+      security:
+        - bearerAuth: [gestor]
+      parameters:
+        - name: If-Match
+          in: header
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProductInput"
+      responses:
+        "200":
+          $ref: "#/components/responses/ProductWithETag"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "412":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+    delete:
+      tags: [catalog]
+      operationId: deleteProduct
+      summary: Apaga um produto sem histórico
+      description: Um produto com stock ou vendas não se apaga (409); desativa-se.
+      security:
+        - bearerAuth: [gestor]
+      responses:
+        "204":
+          description: Apagado
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+  /products/{id}/image:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    put:
+      tags: [catalog]
+      operationId: putProductImage
+      summary: Troca a imagem do produto
+      description: |
+        JPEG, PNG ou WebP até 5 MB e 40 megapíxeis. O formato é verificado
+        pelo conteúdo, nunca pelo Content-Type. A imagem é sempre
+        reprocessada em JPEG (800 px e 160 px) e o original é descartado,
+        com os metadados (EXIF, GPS) incluídos (ADR-0014).
+      security:
+        - bearerAuth: [gestor]
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      responses:
+        "200":
+          description: Imagem trocada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductImage"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "413":
+          $ref: "#/components/responses/Problem"
+        "415":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+    delete:
+      tags: [catalog]
+      operationId: deleteProductImage
+      summary: Remove a imagem do produto
+      security:
+        - bearerAuth: [gestor]
+      responses:
+        "204":
+          description: Removida
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+  /public/products/{id}/image:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [catalog]
+      operationId: getProductImage
+      summary: Imagem de um produto (pública, imutável)
+      description: |
+        O URL só funciona com a versão atual (v), que muda sempre que a
+        imagem muda: pode ficar em cache para sempre, e as imagens não se
+        adivinham pelo ID do produto.
+      security: []
+      parameters:
+        - name: size
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [thumb, large]
+        - name: v
+          in: query
+          required: true
+          schema:
+            type: string
+            pattern: "^[0-9a-f]{64}$"
+      responses:
+        "200":
+          description: JPEG
+          headers:
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+            ETag:
+              required: true
+              schema:
+                type: string
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
 # Tudo é negado por omissão (docs/security/authz-matrix.md). Os papéis com
 # acesso a cada operação vão na lista do bearerAuth (OpenAPI 3.1 permite
 # papéis em esquemas que não são OAuth). Uma lista vazia não deixa ninguém
@@ -231,6 +555,13 @@ components:
       scheme: bearer
       bearerFormat: JWT
   parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
     Csrf:
       name: X-CSRF
       in: header
@@ -258,6 +589,17 @@ components:
       schema:
         type: string
   responses:
+    ProductWithETag:
+      description: Produto, com a versão no ETag
+      headers:
+        ETag:
+          required: true
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Product"
     Problem:
       description: Erro no formato RFC 9457 (problem+json)
       content:
@@ -381,6 +723,108 @@ components:
           minLength: 12
           maxLength: 128
           description: Palavra-passe nova, definida pelo gestor (por exemplo, se o utilizador a esqueceu).
+    Unit:
+      type: string
+      enum: [kg, l, un, molho, duzia]
+      description: kg e l aceitam casas decimais; un, molho e duzia só inteiros.
+    VatRate:
+      type: integer
+      enum: [6, 13, 23]
+    Category:
+      type: object
+      required: [id, name, productCount, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        productCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CategoryInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+    ProductInput:
+      type: object
+      additionalProperties: false
+      required: [categoryId, name, unit, priceCents, vatRate, seasonMonths, lowStockMilli, isPublic, active]
+      properties:
+        categoryId:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        unit:
+          $ref: "#/components/schemas/Unit"
+        priceCents:
+          type: integer
+          minimum: 0
+          maximum: 10000000
+          description: Preço por unidade, com IVA, em cêntimos (ADR-0009).
+        vatRate:
+          $ref: "#/components/schemas/VatRate"
+        seasonMonths:
+          type: array
+          uniqueItems: true
+          maxItems: 12
+          items:
+            type: integer
+            minimum: 1
+            maximum: 12
+          description: Meses da época (1 = janeiro). Vazio quer dizer todo o ano.
+        lowStockMilli:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 999999999999
+          description: Limiar de stock baixo em milésimos da unidade (2500 = 2,5 kg). Para un, molho e duzia, múltiplo de 1000.
+        isPublic:
+          type: boolean
+        active:
+          type: boolean
+    Product:
+      allOf:
+        - $ref: "#/components/schemas/ProductInput"
+        - type: object
+          required: [id, categoryName, version, createdAt, updatedAt]
+          properties:
+            id:
+              type: string
+              format: uuid
+            categoryName:
+              type: string
+            image:
+              $ref: "#/components/schemas/ProductImage"
+            version:
+              type: string
+              description: Versão para o If-Match (igual ao ETag, sem aspas).
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+    ProductImage:
+      type: object
+      required: [version]
+      properties:
+        version:
+          type: string
+          description: Hash da imagem; vai no parâmetro v do URL público.
     Session:
       type: object
       required: [accessToken, tokenType, expiresIn, user]

@@ -63,3 +63,57 @@ export function formatDate(iso: string): string {
   const d = /^\d{4}-\d{2}-\d{2}$/.test(iso) ? new Date(`${iso}T12:00:00Z`) : new Date(iso)
   return dateOnly.format(d)
 }
+
+// --- Formulários: texto escrito pela pessoa ⇄ inteiros da API -------------
+// Sem vírgula flutuante pelo meio (ADR-0009): "1,2" vira 120 cêntimos a
+// partir dos dígitos, nunca de 1.2 * 100.
+
+/** "1,20", "1.2" ou "3" → cêntimos; null se não for um preço válido. */
+export function parseEuroToCents(text: string): number | null {
+  const m = /^(\d{1,6})(?:[.,](\d{1,2}))?$/.exec(text.trim().replace(/\s*€$/, ''))
+  if (!m) return null
+  return Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0'))
+}
+
+/** 120 → "1,20" (para pôr num campo de texto). */
+export function centsToInput(cents: number): string {
+  return `${Math.trunc(cents / 100)},${String(cents % 100).padStart(2, '0')}`
+}
+
+/**
+ * Quantidade escrita → milésimos. kg e litros aceitam até 3 casas decimais;
+ * unidades, molhos e dúzias só inteiros. null se não for válida.
+ */
+export function parseQuantityToMilli(text: string, unit: Unit): number | null {
+  const decimal = unit === 'kg' || unit === 'l'
+  const m = (decimal ? /^(\d{1,9})(?:[.,](\d{1,3}))?$/ : /^(\d{1,9})$/).exec(text.trim())
+  if (!m) return null
+  return Number(m[1]) * 1000 + Number((m[2] ?? '').padEnd(3, '0'))
+}
+
+/** 2500, 'kg' → "2,5"; 3000, 'un' → "3" (para pôr num campo de texto). */
+export function milliToInput(milli: number): string {
+  const whole = Math.trunc(milli / 1000)
+  const frac = String(milli % 1000)
+    .padStart(3, '0')
+    .replace(/0+$/, '')
+  return frac ? `${whole},${frac}` : String(whole)
+}
+
+const monthNames = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+
+/** Nome curto do mês (1 = jan). */
+export function monthShort(m: number): string {
+  return monthNames[m - 1] ?? String(m)
+}
+
+/** [] → "Todo o ano"; [12, 1, 2] → "dez, jan, fev" (pela ordem da época). */
+export function formatSeason(months: readonly number[]): string {
+  if (months.length === 0 || months.length === 12) return 'Todo o ano'
+  const sorted = [...months].sort((a, b) => a - b)
+  // Uma época que passa a passagem de ano (dez → fev) lê-se a partir de dez.
+  const gap = sorted.findIndex((m, i) => i > 0 && m - (sorted[i - 1] ?? m) > 1)
+  const ordered =
+    sorted[0] === 1 && sorted.at(-1) === 12 && gap > 0 ? [...sorted.slice(gap), ...sorted.slice(0, gap)] : sorted
+  return ordered.map(monthShort).join(', ')
+}

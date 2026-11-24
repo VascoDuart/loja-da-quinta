@@ -38,6 +38,9 @@ type Config struct {
 	// cabeçalho X-Forwarded-For sem aceitar valores forjados.
 	TrustedProxyHops int
 
+	// RateLimitRPS e RateLimitBurst limitam os pedidos por IP. A rajada tem
+	// de chegar para abrir uma página inteira (sessão, listas e uma miniatura
+	// por produto), mesmo com vários dispositivos da loja atrás do mesmo IP.
 	RateLimitRPS   float64
 	RateLimitBurst int
 
@@ -72,8 +75,8 @@ func FromLookup(lookup func(string) (string, bool)) (Config, error) {
 		DatabaseURL:      r.required("DATABASE_URL"),
 		DatabaseMaxConn:  r.int32("DATABASE_MAX_CONNS", 5),
 		TrustedProxyHops: r.int("TRUSTED_PROXY_HOPS", 0),
-		RateLimitRPS:     r.float("RATE_LIMIT_RPS", 10),
-		RateLimitBurst:   r.int("RATE_LIMIT_BURST", 20),
+		RateLimitRPS:     r.float("RATE_LIMIT_RPS", 20),
+		RateLimitBurst:   r.int("RATE_LIMIT_BURST", 100),
 		JWTSigningKey:    r.str("JWT_SIGNING_KEY", ""),
 		JWTVerifyKeys:    r.str("JWT_VERIFY_KEYS", ""),
 		MaxBodyBytes:     int64(r.int("MAX_BODY_BYTES", 1<<20)),

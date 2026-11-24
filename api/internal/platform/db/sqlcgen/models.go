@@ -8,7 +8,41 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+type Category struct {
+	ID        uuid.UUID
+	Name      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type Product struct {
+	ID           uuid.UUID
+	CategoryID   uuid.UUID
+	Name         string
+	Unit         string
+	PriceCents   int32
+	VatRate      int16
+	SeasonMonths []int16
+	LowStock     pgtype.Numeric
+	IsPublic     bool
+	Active       bool
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
+}
+
+type ProductImage struct {
+	ProductID   uuid.UUID
+	Size        string
+	Data        []byte
+	ContentType string
+	Width       int32
+	Height      int32
+	Sha256      []byte
+	CreatedAt   time.Time
+}
 
 type RefreshToken struct {
 	ID        uuid.UUID

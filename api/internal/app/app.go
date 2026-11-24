@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/VascoDuart/loja-da-quinta/api/internal/auth"
+	"github.com/VascoDuart/loja-da-quinta/api/internal/catalog"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/health"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/httpapi"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/config"
@@ -37,11 +38,13 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, pool *pgxpool
 		return nil, err
 	}
 	authSvc := auth.NewService(userSvc, sessions, tokens, log)
+	catalogStore := catalog.NewPostgresStore(pool)
 
 	api := httpapi.New(
 		health.NewHandler(pool, log, cfg.Version),
 		auth.NewEndpoints(authSvc),
 		users.NewEndpoints(userSvc),
+		catalog.NewEndpoints(catalog.NewService(catalogStore, catalogStore)),
 	)
 	return httpserver.NewHandler(cfg, log, api, httpserver.Security{
 		Authenticate: authSvc.Authenticate,

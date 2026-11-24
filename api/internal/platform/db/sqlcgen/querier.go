@@ -11,7 +11,16 @@ import (
 )
 
 type Querier interface {
+	CreateCategory(ctx context.Context, name string) (Category, error)
+	CreateProduct(ctx context.Context, arg CreateProductParams) (uuid.UUID, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteCategory(ctx context.Context, id uuid.UUID) (int64, error)
+	DeleteProduct(ctx context.Context, id uuid.UUID) (int64, error)
+	DeleteProductImages(ctx context.Context, productID uuid.UUID) (int64, error)
+	GetProduct(ctx context.Context, id uuid.UUID) (GetProductRow, error)
+	// A versão pública da imagem é o hash da versão grande: entra no URL e
+	// muda sempre que a imagem muda.
+	GetProductImage(ctx context.Context, arg GetProductImageParams) (GetProductImageRow, error)
 	GetRefreshFamilyByHash(ctx context.Context, tokenHash []byte) (uuid.UUID, error)
 	// Bloqueia a linha até ao fim da transação: dois pedidos com o mesmo token
 	// nunca rodam os dois.
@@ -19,14 +28,31 @@ type Querier interface {
 	// Queries do módulo users. Só este módulo lê ou escreve a tabela users.
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
+	InsertProductImage(ctx context.Context, arg InsertProductImageParams) error
 	// Queries do módulo auth. Só este módulo lê ou escreve a tabela refresh_tokens.
 	InsertRefreshToken(ctx context.Context, arg InsertRefreshTokenParams) error
+	// Queries do módulo catalog. Só este módulo lê ou escreve categories,
+	// products e product_images.
+	//
+	// As quantidades saem e entram em milésimos inteiros (low_stock_milli), como
+	// o dinheiro em cêntimos (ADR-0009): nunca há vírgula flutuante entre a base
+	// de dados e a API.
+	ListCategories(ctx context.Context) ([]ListCategoriesRow, error)
+	ListProducts(ctx context.Context) ([]ListProductsRow, error)
 	ListUsers(ctx context.Context) ([]User, error)
+	// Bloqueia o produto durante a troca da imagem: dois uploads ao mesmo tempo
+	// não deixam versões misturadas.
+	LockProduct(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
+	ProductExists(ctx context.Context, id uuid.UUID) (bool, error)
+	RenameCategory(ctx context.Context, arg RenameCategoryParams) (Category, error)
 	RevokeRefreshFamily(ctx context.Context, familyID uuid.UUID) (int64, error)
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
 	// Desativar um utilizador, mudar-lhe o papel ou a palavra-passe termina
 	// todas as sessões dele.
 	RevokeUserRefreshTokens(ctx context.Context, userID uuid.UUID) (int64, error)
+	// Só grava se ninguém mudou o produto desde que o cliente o leu (If-Match):
+	// sem linhas devolvidas, o produto não existe ou a versão é outra.
+	UpdateProduct(ctx context.Context, arg UpdateProductParams) (uuid.UUID, error)
 	// Os campos a NULL ficam como estão.
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 }

@@ -178,6 +178,35 @@ func TestMaxBody(t *testing.T) {
 	}
 }
 
+func TestRouteLimits(t *testing.T) {
+	upload := RouteLimits{
+		Match:  func(r *http.Request) bool { return r.Method == "PUT" && r.URL.Path == "/upload" },
+		Limits: Limits{MaxBody: 10, Timeout: time.Hour},
+	}
+	var readErr error
+	var deadline time.Time
+	h := MaxBody(4, upload)(Timeout(time.Second, upload)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, readErr = io.ReadAll(r.Body)
+		deadline, _ = r.Context().Deadline()
+	})))
+
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("PUT", "/upload", strings.NewReader("12345678")))
+	if readErr != nil {
+		t.Errorf("a rota de upload aceita 10 bytes: %v", readErr)
+	}
+	if time.Until(deadline) < 30*time.Minute {
+		t.Error("a rota de upload devia ter o prazo maior")
+	}
+
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/upload", strings.NewReader("12345678")))
+	if readErr == nil {
+		t.Error("outro método na mesma rota fica com o limite por omissão")
+	}
+	if time.Until(deadline) > time.Minute {
+		t.Error("outro método na mesma rota fica com o prazo por omissão")
+	}
+}
+
 func TestTimeoutSetsDeadline(t *testing.T) {
 	var hasDeadline bool
 	Timeout(time.Second)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
