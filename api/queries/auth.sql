@@ -22,3 +22,9 @@ WHERE family_id = $1 AND revoked_at IS NULL;
 
 -- name: GetRefreshFamilyByHash :one
 SELECT family_id FROM refresh_tokens WHERE token_hash = $1;
+
+-- Desativar um utilizador, mudar-lhe o papel ou a palavra-passe termina
+-- todas as sessões dele.
+-- name: RevokeUserRefreshTokens :execrows
+UPDATE refresh_tokens SET revoked_at = now()
+WHERE user_id = $1 AND revoked_at IS NULL;

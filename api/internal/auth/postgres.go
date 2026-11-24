@@ -91,3 +91,11 @@ func (s *PostgresStore) RevokeFamilyOf(ctx context.Context, hash []byte) error {
 	_, err = q.RevokeRefreshFamily(ctx, familyID)
 	return err
 }
+
+// RevokeAllForUser termina todas as sessões de um utilizador. Implementa
+// users.SessionRevoker: o módulo users chama-o ao desativar, mudar o papel
+// ou a palavra-passe.
+func (s *PostgresStore) RevokeAllForUser(ctx context.Context, userID uuid.UUID) error {
+	_, err := sqlcgen.New(s.pool).RevokeUserRefreshTokens(ctx, userID)
+	return err
+}

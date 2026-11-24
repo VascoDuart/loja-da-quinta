@@ -52,8 +52,11 @@ Todos os pares de texto e fundo cumprem WCAG AA (4,5:1) nos dois modos.
 | `Button` | `shared/ui/ui.tsx` | `primary`, `secondary`, `ghost`; `type="button"` por omissão |
 | `Chip` | `shared/ui/ui.tsx` | Filtro com `aria-pressed` |
 | `StockPill` | `shared/ui/ui.tsx` | `disponivel`, `pouco`, `esgotado` |
+| `Pill` | `shared/ui/ui.tsx` | Etiqueta genérica: `ok`, `warn`, `bad`, `neutral`; o texto diz sempre o mesmo que a cor |
 | `SeasonTip` | `shared/ui/ui.tsx` | Região "Dica da época" |
 | `TextField` | `shared/ui/ui.tsx` | Etiqueta sempre visível, ajuda ligada por `aria-describedby`, 44 px de altura |
+| `RadioGroup` | `shared/ui/ui.tsx` | Poucas opções, todas à vista, num `fieldset` com `legend` |
+| `Checkbox` | `shared/ui/ui.tsx` | Etiqueta clicável, 44 px de área de toque |
 | `Alert` | `shared/ui/ui.tsx` | `error` (`role="alert"`, anunciado logo) e `info` (`role="status"`) |
 | `ThemeToggle` | `shared/theme/ThemeToggle.tsx` | Troca e lembra o tema |
 | Ícones | `shared/ui/icons.tsx` | Traço de 1,8 px, decorativos (`aria-hidden`) |

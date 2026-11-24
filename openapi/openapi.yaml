@@ -11,6 +11,8 @@ tags:
   - name: health
   - name: auth
     description: Sessão dos utilizadores internos (ADR-0005)
+  - name: users
+    description: Gestão dos utilizadores internos pelo gestor (UC-02)
 paths:
   /healthz:
     get:
@@ -123,6 +125,99 @@ paths:
           $ref: "#/components/responses/Problem"
         "403":
           $ref: "#/components/responses/Problem"
+  /users:
+    get:
+      tags: [users]
+      operationId: listUsers
+      summary: Lista os utilizadores, ativos e desativados
+      security:
+        - bearerAuth: [gestor]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ManagedUser"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+    post:
+      tags: [users]
+      operationId: createUser
+      summary: Cria um utilizador
+      security:
+        - bearerAuth: [gestor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewUser"
+      responses:
+        "201":
+          description: Criado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedUser"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /users/{id}:
+    patch:
+      tags: [users]
+      operationId: updateUser
+      summary: Edita um utilizador (nome, papel, estado ou palavra-passe)
+      description: |
+        Desativar, mudar o papel ou definir uma palavra-passe nova termina
+        todas as sessões do utilizador. Não há DELETE: um utilizador fica
+        sempre no histórico (vendas, auditoria) e só se desativa. O gestor
+        não pode desativar nem tirar o papel de gestor à própria conta.
+      security:
+        - bearerAuth: [gestor]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedUser"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
 # Tudo é negado por omissão (docs/security/authz-matrix.md). Os papéis com
 # acesso a cada operação vão na lista do bearerAuth (OpenAPI 3.1 permite
 # papéis em esquemas que não são OAuth). Uma lista vazia não deixa ninguém
@@ -228,6 +323,64 @@ components:
           type: string
         role:
           $ref: "#/components/schemas/Role"
+    ManagedUser:
+      type: object
+      required: [id, email, name, role, active, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    NewUser:
+      type: object
+      additionalProperties: false
+      required: [email, name, role, password]
+      properties:
+        email:
+          type: string
+          minLength: 3
+          maxLength: 254
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        role:
+          $ref: "#/components/schemas/Role"
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+    UserUpdate:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        role:
+          $ref: "#/components/schemas/Role"
+        active:
+          type: boolean
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+          description: Palavra-passe nova, definida pelo gestor (por exemplo, se o utilizador a esqueceu).
     Session:
       type: object
       required: [accessToken, tokenType, expiresIn, user]

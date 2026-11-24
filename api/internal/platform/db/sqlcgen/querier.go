@@ -11,18 +11,24 @@ import (
 )
 
 type Querier interface {
-	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
+	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	GetRefreshFamilyByHash(ctx context.Context, tokenHash []byte) (uuid.UUID, error)
 	// Bloqueia a linha até ao fim da transação: dois pedidos com o mesmo token
 	// nunca rodam os dois.
 	GetRefreshTokenForUpdate(ctx context.Context, tokenHash []byte) (GetRefreshTokenForUpdateRow, error)
 	// Queries do módulo users. Só este módulo lê ou escreve a tabela users.
-	GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error)
-	GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error)
+	GetUserByEmail(ctx context.Context, email string) (User, error)
+	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
 	// Queries do módulo auth. Só este módulo lê ou escreve a tabela refresh_tokens.
 	InsertRefreshToken(ctx context.Context, arg InsertRefreshTokenParams) error
+	ListUsers(ctx context.Context) ([]User, error)
 	RevokeRefreshFamily(ctx context.Context, familyID uuid.UUID) (int64, error)
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error
+	// Desativar um utilizador, mudar-lhe o papel ou a palavra-passe termina
+	// todas as sessões dele.
+	RevokeUserRefreshTokens(ctx context.Context, userID uuid.UUID) (int64, error)
+	// Os campos a NULL ficam como estão.
+	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
 }
 
 var _ Querier = (*Queries)(nil)

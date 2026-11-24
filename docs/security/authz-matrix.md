@@ -25,9 +25,11 @@ O valor por omissão da spec é `bearerAuth: []`, que não deixa ninguém entrar
 | `POST` · `PUT` · `DELETE /products` · `/categories` | 401 | 403 | ✓ |
 | `PUT` · `DELETE /products/{id}/image` | 401 | 403 | ✓ |
 | `GET /reports/*` | 401 | 403 | ✓ |
-| `* /users` | 401 | 403 | ✓ |
+| `GET` · `POST /users` · `PATCH /users/{id}` | 401 | 403 | ✓ |
 | `GET /audit` | 401 | 403 | ✓ |
 
 **401** quando não há sessão; **403** quando há sessão mas o papel não chega.
+
+Regras de `/users` além do papel: não há `DELETE` (um utilizador fica no histórico e só se desativa), e o gestor não pode desativar nem despromover a própria conta (`409`), para haver sempre um gestor ativo. O serviço `users` volta a verificar o papel, mesmo depois do RBAC da API.
 
 Todos os caminhos têm o prefixo `/api/v1`.

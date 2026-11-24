@@ -13,7 +13,7 @@ Estado: ⬜ por fazer · 🟡 em curso · ✅ feito · ➖ não aplicável
 | V3 Sessões | Tokens de sessão gerados com CSPRNG e com pelo menos 128 bits | `auth` (256 bits) | ✅ |
 | V3 Sessões | Logout invalida a sessão no servidor | `auth` | ✅ |
 | V3 Sessões | Cookies com `Secure`, `HttpOnly` e `SameSite` | `auth` | ✅ |
-| V3 Sessões | Desativar um utilizador termina as suas sessões | `users` + `auth` | 🟡 a renovação já recusa contas desativadas; falta desativar (#9) |
+| V3 Sessões | Desativar um utilizador termina as suas sessões | `users` + `auth` | ✅ (também ao mudar o papel ou a palavra-passe) |
 | V4 Controlo de acesso | Negado por omissão; verificação no servidor em cada pedido | OpenAPI (`security`) + `auth.Authorize` | ✅ |
 | V4 Controlo de acesso | Proteção contra IDOR (verificação de posse/papel no serviço) | serviços | ⬜ |
 | V4 Controlo de acesso | Proteção CSRF nos endpoints com cookie | `auth` (`SameSite=Strict` + `X-CSRF`) | ✅ |

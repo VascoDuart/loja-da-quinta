@@ -63,7 +63,8 @@ func run() error {
 	}
 	defer pool.Close()
 
-	svc, err := users.NewService(ctx, users.NewPostgresRepo(pool), password.New(password.OWASP, 1))
+	// Sem SessionRevoker: este comando só cria utilizadores.
+	svc, err := users.NewService(ctx, users.NewPostgresRepo(pool), password.New(password.OWASP, 1), nil)
 	if err != nil {
 		return err
 	}
