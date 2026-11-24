@@ -10,6 +10,7 @@ import { RouterProvider } from 'react-router/dom'
 
 import { createQueryClient } from './api/queryClient'
 import { routes } from './app/routes'
+import { AuthProvider } from './features/auth/AuthProvider'
 import { initTheme } from './shared/theme/theme'
 import { WakingServer } from './shared/ui/WakingServer'
 
@@ -25,7 +26,9 @@ if (!root) throw new Error('Falta o elemento #root no index.html')
 createRoot(root).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <AuthProvider>
+        <RouterProvider router={router} />
+      </AuthProvider>
       <WakingServer />
     </QueryClientProvider>
   </StrictMode>,

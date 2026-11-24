@@ -3,12 +3,14 @@ name: deploy-staging
 # Publica cada merge na dev em staging e corre os testes E2E contra ele.
 #
 #   1. migrações na Neon (branch staging), com o papel migrator;
-#   2. deploy da API na Render (Auto-Deploy desligado: só depois das migrações);
-#   3. espera que a API e o frontend (a Vercel publica sozinha a dev) estejam
+#   2. contas dos testes E2E (só são criadas se ainda não existirem);
+#   3. deploy da API na Render (Auto-Deploy desligado: só depois das migrações);
+#   4. espera que a API e o frontend (a Vercel publica sozinha a dev) estejam
 #      na versão deste commit;
-#   4. testes E2E com Playwright contra https://loja-da-quinta-staging.vercel.app.
+#   5. testes E2E com Playwright contra https://loja-da-quinta-staging.vercel.app.
 #
-# Segredos: STAGING_MIGRATIONS_DATABASE_URL e RENDER_STAGING_DEPLOY_HOOK.
+# Segredos: STAGING_MIGRATIONS_DATABASE_URL, RENDER_STAGING_DEPLOY_HOOK,
+# E2E_GESTOR_PASSWORD e E2E_FUNCIONARIO_PASSWORD.
 
 on:
   push:
@@ -26,6 +28,9 @@ concurrency:
 env:
   WEB_URL: https://loja-da-quinta-staging.vercel.app
   API_URL: https://loja-da-quinta-api-staging.onrender.com
+  # Contas só de teste, num domínio reservado (.test) que nunca recebe e-mail.
+  E2E_GESTOR_EMAIL: e2e-gestor@loja.test
+  E2E_FUNCIONARIO_EMAIL: e2e-funcionario@loja.test
 
 jobs:
   deploy:
@@ -44,6 +49,22 @@ jobs:
         env:
           MIGRATIONS_DATABASE_URL: ${{ secrets.STAGING_MIGRATIONS_DATABASE_URL }}
         run: go run ./cmd/migrate
+
+      - name: Contas dos testes E2E
+        working-directory: api
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_MIGRATIONS_DATABASE_URL }}
+          GESTOR_PASSWORD: ${{ secrets.E2E_GESTOR_PASSWORD }}
+          FUNCIONARIO_PASSWORD: ${{ secrets.E2E_FUNCIONARIO_PASSWORD }}
+        run: |
+          if [ -z "$GESTOR_PASSWORD" ] || [ -z "$FUNCIONARIO_PASSWORD" ]; then
+            echo "::error::Faltam os segredos E2E_GESTOR_PASSWORD e E2E_FUNCIONARIO_PASSWORD"; exit 1
+          fi
+          go build -o /tmp/createuser ./cmd/createuser
+          NEW_USER_PASSWORD="$GESTOR_PASSWORD" /tmp/createuser -if-missing \
+            -email "$E2E_GESTOR_EMAIL" -name "Gestora E2E" -role gestor
+          NEW_USER_PASSWORD="$FUNCIONARIO_PASSWORD" /tmp/createuser -if-missing \
+            -email "$E2E_FUNCIONARIO_EMAIL" -name "Funcionário E2E" -role funcionario
 
       - name: Pedir o deploy da API à Render
         env:
@@ -98,6 +119,8 @@ jobs:
         env:
           E2E_BASE_URL: ${{ env.WEB_URL }}
           E2E_EXPECTED_VERSION: ${{ github.sha }}
+          E2E_GESTOR_PASSWORD: ${{ secrets.E2E_GESTOR_PASSWORD }}
+          E2E_FUNCIONARIO_PASSWORD: ${{ secrets.E2E_FUNCIONARIO_PASSWORD }}
         run: npm run e2e
       - name: Guardar o relatório se falhar
         if: failure()

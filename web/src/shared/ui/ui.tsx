@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, useId } from 'react'
 
 import './ui.css'
 
@@ -42,5 +42,42 @@ export function SeasonTip({ title, children, image }: { title: string; children:
       </div>
       {image}
     </aside>
+  )
+}
+
+type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> & {
+  label: string
+  /** Texto de ajuda por baixo do campo. */
+  hint?: string
+}
+
+/** Campo de texto com etiqueta visível (WCAG 3.3.2) e altura de toque de 44 px. */
+export function TextField({ label, hint, className = '', ...props }: TextFieldProps) {
+  const id = useId()
+  const hintId = hint ? `${id}-hint` : undefined
+  return (
+    <div className={`field ${className}`.trim()}>
+      <label htmlFor={id} className="field__label">
+        {label}
+      </label>
+      <input id={id} className="field__input" aria-describedby={hintId} {...props} />
+      {hint && (
+        <span id={hintId} className="field__hint">
+          {hint}
+        </span>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Mensagem dentro da página. "error" é anunciada logo pelos leitores de
+ * ecrã (role="alert"); "info" é anunciada quando houver uma pausa.
+ */
+export function Alert({ tone = 'error', children }: { tone?: 'error' | 'info'; children: ReactNode }) {
+  return (
+    <div role={tone === 'error' ? 'alert' : 'status'} className={`alert alert--${tone}`}>
+      {children}
+    </div>
   )
 }

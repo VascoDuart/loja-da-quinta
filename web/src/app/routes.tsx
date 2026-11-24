@@ -10,9 +10,8 @@ export type Role = 'funcionario' | 'gestor'
 /**
  * Metadados de cada rota.
  * - `title`: título da página (separador do browser e cabeçalho).
- * - `roles`: quem pode ver a página. A guarda que o aplica chega com a
- *   autenticação (#8). A autorização real é sempre da API; isto só evita
- *   mostrar ecrãs inúteis.
+ * - `roles`: quem pode ver a página (o BackofficeLayout aplica-o). A
+ *   autorização real é sempre da API; isto só evita mostrar ecrãs inúteis.
  * - `nav`: aparece no menu do backoffice.
  */
 export type RouteHandle = {
