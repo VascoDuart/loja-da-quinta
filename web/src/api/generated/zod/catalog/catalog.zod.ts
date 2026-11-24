@@ -351,3 +351,28 @@ export const GetProductImageQueryParams = zod.object({
 
 export const GetProductImageResponse = zod.unknown()
 
+/**
+ * Os produtos ativos e visíveis no catálogo, por categoria e nome.
+ * Devolve só o que uma pessoa precisa para escolher: nunca quantidades
+ * exatas, IVA, limiar de stock nem datas internas. A resposta pode
+ * ficar 60 s em cache (Cache-Control).
+ * @summary Catálogo público (sem sessão)
+ */
+export const getPublicCatalogResponseSeasonMonthsItemMax = 12;
+
+
+
+export const GetPublicCatalogResponseItem = zod.object({
+  "id": zod.uuid(),
+  "name": zod.string(),
+  "categoryName": zod.string(),
+  "unit": zod.enum(['kg', 'l', 'un', 'molho', 'duzia']).describe('kg e l aceitam casas decimais; un, molho e duzia só inteiros.'),
+  "priceCents": zod.int().describe('Preço por unidade, com IVA, em cêntimos (ADR-0009).'),
+  "seasonMonths": zod.array(zod.int().min(1).max(getPublicCatalogResponseSeasonMonthsItemMax)).describe('Meses da época (1 = janeiro). Vazio quer dizer todo o ano.'),
+  "image": zod.object({
+  "version": zod.string().describe('Hash da imagem; vai no parâmetro v do URL público.')
+}).optional(),
+  "availability": zod.enum(['disponivel', 'pouco', 'esgotado']).describe('Estado do stock sem expor a quantidade. esgotado com stock 0; pouco abaixo do limiar de stock baixo do produto.')
+}).describe('Produto como o público o vê. Nunca tem quantidades exatas nem campos internos.')
+export const GetPublicCatalogResponse = zod.array(GetPublicCatalogResponseItem)
+

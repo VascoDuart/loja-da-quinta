@@ -8,6 +8,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './availability';
+export * from './catalogItem';
 export * from './category';
 export * from './categoryInput';
 export * from './csrfParameter';

@@ -117,3 +117,8 @@ export function formatSeason(months: readonly number[]): string {
     sorted[0] === 1 && sorted.at(-1) === 12 && gap > 0 ? [...sorted.slice(gap), ...sorted.slice(0, gap)] : sorted
   return ordered.map(monthShort).join(', ')
 }
+
+/** Mês atual (1 = jan) na hora de Lisboa, para saber o que está na época. */
+export function lisbonMonth(now: Date = new Date()): number {
+  return Number(new Intl.DateTimeFormat('en-US', { timeZone: TIME_ZONE, month: 'numeric' }).format(now))
+}

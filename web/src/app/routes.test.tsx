@@ -15,12 +15,12 @@ function renderAt(path: string) {
 
 describe('rotas públicas', () => {
   it.each([
-    ['/', 'Lista de produtos da época'],
-    ['/produtos/123', 'Detalhe do produto'],
+    ['/', 'Produtos da época'],
+    ['/produtos/123', 'Produto não encontrado'],
     ['/entrar', 'Entrar no backoffice'],
   ])('%s mostra a página certa', async (path, text) => {
     renderAt(path)
-    expect(await screen.findByText(new RegExp(text))).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: text })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Loja da Quinta' })).toBeInTheDocument()
   })
 })

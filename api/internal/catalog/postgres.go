@@ -155,6 +155,32 @@ func (s *PostgresStore) DeleteProduct(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+func (s *PostgresStore) ListPublicProducts(ctx context.Context) ([]Product, error) {
+	rows, err := s.q().ListPublicProducts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listar o catálogo público: %w", err)
+	}
+	out := make([]Product, len(rows))
+	for i, r := range rows {
+		p := Product{
+			ProductInput: ProductInput{
+				Name: r.Name, Unit: Unit(r.Unit), PriceCents: int(r.PriceCents),
+				SeasonMonths: make([]int, len(r.SeasonMonths)), LowStockMilli: r.LowStockMilli,
+				IsPublic: true, Active: true,
+			},
+			ID: r.ID, CategoryName: r.CategoryName,
+		}
+		for j, m := range r.SeasonMonths {
+			p.SeasonMonths[j] = int(m)
+		}
+		if len(r.ImageSha256) > 0 {
+			p.ImageVersion = hex.EncodeToString(r.ImageSha256)
+		}
+		out[i] = p
+	}
+	return out, nil
+}
+
 // --- Imagens ---------------------------------------------------------------
 
 func (s *PostgresStore) Replace(ctx context.Context, productID uuid.UUID, img ProcessedImage) error {

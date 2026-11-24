@@ -26,6 +26,34 @@ type Repo interface {
 	UpdateProduct(ctx context.Context, id uuid.UUID, expectedVersion time.Time, in ProductInput) (Product, error)
 	// DeleteProduct devolve ErrInUse se o produto tiver histórico.
 	DeleteProduct(ctx context.Context, id uuid.UUID) error
+
+	// ListPublicProducts devolve só os produtos ativos e públicos, por
+	// categoria e nome. Só preenche o que o catálogo público precisa, mais o
+	// limiar de stock (LowStockMilli), que serve para decidir a
+	// disponibilidade e nunca sai do módulo.
+	ListPublicProducts(ctx context.Context) ([]Product, error)
+}
+
+// StockSource diz quanto stock há de cada produto, em milésimos da unidade.
+// É a porta por onde o módulo de stock (#12) liga o stock real ao catálogo
+// público: o catálogo nunca lê as tabelas de stock.
+//
+// O resultado tem uma entrada por cada produto com stock controlado (0 se
+// não há nada); um produto ausente do mapa não tem stock controlado e
+// conta como disponível. A decisão (esgotado, pouco, disponível) é do
+// catálogo: ver AvailabilityOf.
+type StockSource interface {
+	StockMilli(ctx context.Context, productIDs []uuid.UUID) (map[uuid.UUID]int64, error)
+}
+
+// UntrackedStock é a StockSource de hoje: ainda não há stock por lotes
+// (#12), por isso nenhum produto tem stock controlado e todos aparecem como
+// disponíveis.
+type UntrackedStock struct{}
+
+// StockMilli não devolve nenhum produto.
+func (UntrackedStock) StockMilli(context.Context, []uuid.UUID) (map[uuid.UUID]int64, error) {
+	return map[uuid.UUID]int64{}, nil
 }
 
 // ImageStore guarda as imagens dos produtos (ADR-0014). Hoje é o

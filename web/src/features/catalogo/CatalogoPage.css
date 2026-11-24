@@ -1,0 +1,145 @@
+.catalogo,
+.produto {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 60rem;
+}
+
+.catalogo__state {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.catalogo__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Telemóvel: uma coluna. Ecrãs maiores: tantas colunas quantas couberem. */
+.catalogo__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.catalogo__item {
+  display: flex;
+}
+
+.catalog-card {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.catalog-card:hover {
+  border-color: var(--color-green);
+}
+
+.catalog-card:focus-visible,
+.produto__back:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.catalog-card__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.catalog-card__name {
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.catalog-card__price {
+  font-weight: 700;
+}
+
+.catalog-card__season {
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+}
+
+.catalog-thumb {
+  flex: none;
+  display: block;
+  object-fit: cover;
+  background: var(--color-image);
+}
+
+.catalog-thumb--thumb {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: var(--radius-md);
+}
+
+.catalog-thumb--large {
+  width: 100%;
+  max-width: 24rem;
+  height: auto;
+  aspect-ratio: 1;
+  border-radius: var(--radius-lg);
+}
+
+.produto__back {
+  align-self: flex-start;
+  padding: var(--space-2) 0;
+  font-weight: 700;
+}
+
+.produto__detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+}
+
+.produto__info {
+  flex: 1 1 14rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.produto__info > p,
+.produto__facts,
+.produto__facts dd {
+  margin: 0;
+}
+
+.produto__category {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-muted);
+}
+
+.produto__price {
+  font-size: var(--text-lg);
+  font-weight: 800;
+}
+
+.produto__facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-1) var(--space-3);
+}
+
+.produto__facts dt {
+  font-weight: 700;
+  color: var(--color-muted);
+}

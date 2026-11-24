@@ -88,7 +88,7 @@ func identityRequest(r *http.Request) *http.Request {
 
 // publicOperations são as únicas operações sem sessão. Acrescentar uma
 // operação pública obriga a mudar este teste, o que fica visível no PR.
-var publicOperations = []string{"getHealth", "getReadiness", "login", "refreshSession", "logout", "getProductImage"}
+var publicOperations = []string{"getHealth", "getReadiness", "login", "refreshSession", "logout", "getProductImage", "getPublicCatalog"}
 
 // isPublic compara sem maiúsculas: a spec embebida pelo oapi-codegen
 // capitaliza os operationId.

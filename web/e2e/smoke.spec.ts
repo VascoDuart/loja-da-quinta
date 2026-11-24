@@ -47,7 +47,8 @@ for (const colorScheme of ['light', 'dark'] as const) {
   test.describe(`modo ${colorScheme === 'light' ? 'claro' : 'escuro'}`, () => {
     test.use({ colorScheme })
 
-    for (const path of ['/', '/entrar']) {
+    // O último é um produto que não existe: o estado "não encontrado" também tem de ser acessível.
+    for (const path of ['/', '/entrar', '/produtos/00000000-0000-4000-8000-000000000000']) {
       test(`${path} não tem problemas de acessibilidade WCAG 2.1 AA`, async ({ page }) => {
         await page.goto(path)
         await expectNoAxeViolations(page)

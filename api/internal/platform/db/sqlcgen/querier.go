@@ -39,6 +39,10 @@ type Querier interface {
 	// de dados e a API.
 	ListCategories(ctx context.Context) ([]ListCategoriesRow, error)
 	ListProducts(ctx context.Context) ([]ListProductsRow, error)
+	// Catálogo público: só produtos ativos e públicos, e só as colunas que o
+	// público pode ver (nunca IVA, limiar de stock, ativo nem datas). O limiar
+	// vem só para o serviço decidir a disponibilidade; não sai para a API.
+	ListPublicProducts(ctx context.Context) ([]ListPublicProductsRow, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	// Bloqueia o produto durante a troca da imagem: dois uploads ao mesmo tempo
 	// não deixam versões misturadas.

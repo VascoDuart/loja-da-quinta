@@ -542,6 +542,31 @@ paths:
           $ref: "#/components/responses/Problem"
         "404":
           $ref: "#/components/responses/Problem"
+  /public/catalog:
+    get:
+      tags: [catalog]
+      operationId: getPublicCatalog
+      summary: Catálogo público (sem sessão)
+      description: |
+        Os produtos ativos e visíveis no catálogo, por categoria e nome.
+        Devolve só o que uma pessoa precisa para escolher: nunca quantidades
+        exatas, IVA, limiar de stock nem datas internas. A resposta pode
+        ficar 60 s em cache (Cache-Control).
+      security: []
+      responses:
+        "200":
+          description: Lista de produtos (pode estar vazia)
+          headers:
+            Cache-Control:
+              required: true
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CatalogItem"
 # Tudo é negado por omissão (docs/security/authz-matrix.md). Os papéis com
 # acesso a cada operação vão na lista do bearerAuth (OpenAPI 3.1 permite
 # papéis em esquemas que não são OAuth). Uma lista vazia não deixa ninguém
@@ -825,6 +850,38 @@ components:
         version:
           type: string
           description: Hash da imagem; vai no parâmetro v do URL público.
+    Availability:
+      type: string
+      enum: [disponivel, pouco, esgotado]
+      description: Estado do stock sem expor a quantidade. esgotado com stock 0; pouco abaixo do limiar de stock baixo do produto.
+    CatalogItem:
+      type: object
+      description: Produto como o público o vê. Nunca tem quantidades exatas nem campos internos.
+      required: [id, name, categoryName, unit, priceCents, seasonMonths, availability]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        categoryName:
+          type: string
+        unit:
+          $ref: "#/components/schemas/Unit"
+        priceCents:
+          type: integer
+          description: Preço por unidade, com IVA, em cêntimos (ADR-0009).
+        seasonMonths:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+            maximum: 12
+          description: Meses da época (1 = janeiro). Vazio quer dizer todo o ano.
+        image:
+          $ref: "#/components/schemas/ProductImage"
+        availability:
+          $ref: "#/components/schemas/Availability"
     Session:
       type: object
       required: [accessToken, tokenType, expiresIn, user]
