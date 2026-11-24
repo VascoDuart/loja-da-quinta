@@ -53,12 +53,14 @@ Todos os pares de texto e fundo cumprem WCAG AA (4,5:1) nos dois modos.
 | `Chip` | `shared/ui/ui.tsx` | Filtro com `aria-pressed` |
 | `StockPill` | `shared/ui/ui.tsx` | `disponivel`, `pouco`, `esgotado` |
 | `SeasonTip` | `shared/ui/ui.tsx` | Região "Dica da época" |
+| `TextField` | `shared/ui/ui.tsx` | Etiqueta sempre visível, ajuda ligada por `aria-describedby`, 44 px de altura |
+| `Alert` | `shared/ui/ui.tsx` | `error` (`role="alert"`, anunciado logo) e `info` (`role="status"`) |
 | `ThemeToggle` | `shared/theme/ThemeToggle.tsx` | Troca e lembra o tema |
 | Ícones | `shared/ui/icons.tsx` | Traço de 1,8 px, decorativos (`aria-hidden`) |
 
 ## Layouts
 
-- **Backoffice:** barra lateral verde com letras brancas; item ativo em branco com texto verde; botão de tema no fundo. Em ecrãs estreitos, a barra passa para cima.
+- **Backoffice:** barra lateral verde com letras brancas; item ativo em branco com texto verde; no fundo, o nome e o papel de quem tem sessão, o botão de tema e "Terminar sessão". O menu só mostra as páginas do papel. Em ecrãs estreitos, a barra passa para cima.
 - **Público:** cabeçalho verde com a marca, "Entrar" e o botão de tema; conteúdo numa coluna de 48 rem.
 
 ## Tema

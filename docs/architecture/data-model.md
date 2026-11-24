@@ -16,7 +16,8 @@ erDiagram
 
     users {
         uuid id PK
-        citext email UK
+        text email UK "minúsculas"
+        text name
         text password_hash
         text role "gestor | funcionario"
         bool active
@@ -136,6 +137,7 @@ erDiagram
 - **O `updated_at` serve também de controlo de concorrência otimista:** a API devolve-o como `ETag` e exige `If-Match` ao editar um produto. Se dois gestores editarem o mesmo produto ao mesmo tempo, o segundo recebe `412 Precondition Failed` em vez de apagar as alterações do primeiro sem saber.
 - **O `updated_at` diz quando, não quem nem o quê:** para isso existe a auditoria.
 - **Imagens em `product_images`** ([ADR-0014](../adr/0014-imagens-dos-produtos-no-postgresql.md)): duas versões por produto (`thumb` 160 px, `large` 800 px), sempre reprocessadas em JPEG pela API. O `sha256` entra no URL, que é imutável e fica na cache da CDN. Trocar a imagem apaga e volta a inserir as duas linhas na mesma transação; por isso não há `updated_at`. `ON DELETE CASCADE` a partir de `products`.
+- **E-mail guardado em minúsculas** (`CHECK (email = lower(email))`) em vez de `citext`: o papel `migrator` não pode instalar extensões na Neon, e a API normaliza o e-mail antes de o procurar.
 - **Enums como `text` com `CHECK`**, em vez de tipos `ENUM` do PostgreSQL, para facilitar migrações.
 - **Auditoria só de acrescento:** o papel `app` tem apenas `INSERT` e `SELECT` em `audit_log`.
 
