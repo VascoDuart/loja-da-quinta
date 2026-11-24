@@ -8,7 +8,11 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './category';
+export * from './categoryInput';
 export * from './csrfParameter';
+export * from './getProductImageParams';
+export * from './getProductImageSize';
 export * from './health';
 export * from './healthStatus';
 export * from './loginRequest';
@@ -16,10 +20,16 @@ export * from './managedUser';
 export * from './newUser';
 export * from './problem';
 export * from './problemResponse';
+export * from './product';
+export * from './productImage';
+export * from './productInput';
+export * from './productWithETagResponse';
 export * from './role';
 export * from './session';
 export * from './sessionEndedResponse';
 export * from './sessionStartedResponse';
 export * from './sessionTokenType';
+export * from './unit';
 export * from './user';
 export * from './userUpdate';
+export * from './vatRate';

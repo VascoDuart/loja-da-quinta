@@ -26,6 +26,10 @@ export const handlers = [
   http.get('*/api/v1/readyz', () => HttpResponse.json({ status: 'ok', version: 'test' })),
   http.post('*/api/v1/auth/refresh', () => problem(401, 'A sessão terminou. Inicia sessão de novo.')),
   http.post('*/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 })),
+  // Listas vazias por omissão: cada teste de página define as suas.
+  http.get('*/api/v1/users', () => HttpResponse.json([])),
+  http.get('*/api/v1/categories', () => HttpResponse.json([])),
+  http.get('*/api/v1/products', () => HttpResponse.json([])),
 ]
 
 export const server = setupServer(...handlers)

@@ -77,7 +77,7 @@ Ordem em `internal/platform/httpserver/server.go`. O primeiro é o mais exterior
 | 3 | Access log | Regista o status final, incluindo 429 e 500 |
 | 4 | Cabeçalhos de segurança | Aplicam-se também às respostas de erro |
 | 5 | Rate limit | Antes de qualquer trabalho caro |
-| 6 | Tamanho do corpo (1 MiB) | Antes de ler o corpo |
+| 6 | Tamanho do corpo (1 MiB) | Antes de ler o corpo. Só o upload de imagens tem 5 MB (e 30 s de prazo), numa lista explícita de rotas |
 | 7 | Timeout (10 s) | Prazo propagado pelo contexto até à base de dados |
 | 8 | JWT | Lê o `Authorization: Bearer` e põe o principal no contexto; não recusa nada |
 | 9 | Validação OpenAPI e RBAC | Primeiro a segurança (401 sem sessão, 403 sem papel, com os papéis da spec); depois parâmetros e corpo (400) |

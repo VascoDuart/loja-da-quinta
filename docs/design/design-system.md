@@ -55,6 +55,7 @@ Todos os pares de texto e fundo cumprem WCAG AA (4,5:1) nos dois modos.
 | `Pill` | `shared/ui/ui.tsx` | Etiqueta genérica: `ok`, `warn`, `bad`, `neutral`; o texto diz sempre o mesmo que a cor |
 | `SeasonTip` | `shared/ui/ui.tsx` | Região "Dica da época" |
 | `TextField` | `shared/ui/ui.tsx` | Etiqueta sempre visível, ajuda ligada por `aria-describedby`, 44 px de altura |
+| `SelectField` | `shared/ui/ui.tsx` | Lista de escolha com etiqueta, para mais opções do que cabem num `RadioGroup` |
 | `RadioGroup` | `shared/ui/ui.tsx` | Poucas opções, todas à vista, num `fieldset` com `legend` |
 | `Checkbox` | `shared/ui/ui.tsx` | Etiqueta clicável, 44 px de área de toque |
 | `Alert` | `shared/ui/ui.tsx` | `error` (`role="alert"`, anunciado logo) e `info` (`role="status"`) |

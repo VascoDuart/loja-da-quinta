@@ -134,9 +134,11 @@ erDiagram
   ```
 
 - **Sem `updated_at` onde os registos nunca mudam:** `audit_log` e `stock_movements` são só de acrescento, e `sale_items` é gravado com a venda e não se altera. Um `updated_at` nestas tabelas daria a entender que podem ser editadas. `refresh_tokens` só tem `created_at`; a única alteração possível já fica em `revoked_at`.
-- **O `updated_at` serve também de controlo de concorrência otimista:** a API devolve-o como `ETag` e exige `If-Match` ao editar um produto. Se dois gestores editarem o mesmo produto ao mesmo tempo, o segundo recebe `412 Precondition Failed` em vez de apagar as alterações do primeiro sem saber.
+- **O `updated_at` serve também de controlo de concorrência otimista:** a API devolve-o como `ETag` (em microssegundos, também no campo `version`) e exige `If-Match` ao editar um produto. Se dois gestores editarem o mesmo produto ao mesmo tempo, o segundo recebe `412 Precondition Failed` em vez de apagar as alterações do primeiro sem saber.
 - **O `updated_at` diz quando, não quem nem o quê:** para isso existe a auditoria.
 - **Imagens em `product_images`** ([ADR-0014](../adr/0014-imagens-dos-produtos-no-postgresql.md)): duas versões por produto (`thumb` 160 px, `large` 800 px), sempre reprocessadas em JPEG pela API. O `sha256` entra no URL, que é imutável e fica na cache da CDN. Trocar a imagem apaga e volta a inserir as duas linhas na mesma transação; por isso não há `updated_at`. `ON DELETE CASCADE` a partir de `products`.
+- **Nomes únicos sem olhar a maiúsculas:** índices únicos em `lower(name)` nas categorias e nos produtos. "Fruta" e "fruta" seriam a mesma categoria, e dois produtos com o mesmo nome confundiriam a pesquisa no ecrã de venda.
+- **Nada do catálogo se apaga com histórico:** `products.category_id` é `ON DELETE RESTRICT`, e o stock e as vendas vão apontar para os produtos da mesma forma. A API responde `409` e o produto desativa-se.
 - **E-mail guardado em minúsculas** (`CHECK (email = lower(email))`) em vez de `citext`: o papel `migrator` não pode instalar extensões na Neon, e a API normaliza o e-mail antes de o procurar.
 - **Enums como `text` com `CHECK`**, em vez de tipos `ENUM` do PostgreSQL, para facilitar migrações.
 - **Auditoria só de acrescento:** o papel `app` tem apenas `INSERT` e `SELECT` em `audit_log`.

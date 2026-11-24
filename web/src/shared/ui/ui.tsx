@@ -1,4 +1,10 @@
-import { type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, useId } from 'react'
+import {
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+  useId,
+} from 'react'
 
 import './ui.css'
 
@@ -157,6 +163,37 @@ export function Checkbox({ label, hint, ...props }: CheckboxProps) {
         <input id={id} type="checkbox" aria-describedby={hintId} {...props} />
         {label}
       </label>
+      {hint && (
+        <span id={hintId} className="field__hint">
+          {hint}
+        </span>
+      )}
+    </div>
+  )
+}
+
+type SelectFieldProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'id'> & {
+  label: string
+  options: readonly { value: string; label: string }[]
+  hint?: string | undefined
+}
+
+/** Lista de escolha com etiqueta visível, para mais opções do que cabem num RadioGroup. */
+export function SelectField({ label, options, hint, className = '', ...props }: SelectFieldProps) {
+  const id = useId()
+  const hintId = hint ? `${id}-hint` : undefined
+  return (
+    <div className={`field ${className}`.trim()}>
+      <label htmlFor={id} className="field__label">
+        {label}
+      </label>
+      <select id={id} className="field__input" aria-describedby={hintId} {...props}>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
       {hint && (
         <span id={hintId} className="field__hint">
           {hint}

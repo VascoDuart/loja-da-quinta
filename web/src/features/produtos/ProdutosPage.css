@@ -1,0 +1,231 @@
+.produtos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: 60rem;
+}
+
+.section-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 800;
+}
+
+.produtos__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.produtos__products,
+.categories,
+.product-form,
+.image-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Categorias */
+.categories {
+  padding: var(--space-4);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.categories__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.categories__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.categories__name {
+  font-weight: 700;
+}
+
+.categories__count {
+  font-weight: 400;
+  color: var(--color-muted);
+}
+
+.categories__actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.categories__add,
+.categories__rename {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+}
+
+/* Formulário */
+.produtos__edit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.product-form__fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 34rem;
+}
+
+.produtos__products > .product-form {
+  padding: var(--space-5);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.product-form__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.product-form__row > .field {
+  flex: 1 1 12rem;
+}
+
+.product-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.months {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Imagem */
+.image-editor {
+  border-top: 1px solid var(--color-line);
+  padding-top: var(--space-4);
+}
+
+.image-editor__title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: 800;
+}
+
+.image-editor__body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.image-editor__frame {
+  width: 10rem;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--color-image);
+}
+
+.image-editor__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.image-editor__empty {
+  color: var(--color-muted);
+  font-size: var(--text-sm);
+}
+
+.image-editor__controls {
+  flex: 1 1 16rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* Lista de produtos */
+.product-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.product-card {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.product-card--inactive .product-card__name {
+  color: var(--color-muted);
+}
+
+.product-card__img {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: var(--color-image);
+}
+
+.product-card__img--empty {
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: var(--color-green-text);
+  background: var(--color-folha);
+}
+
+.product-card__info {
+  flex: 1 1 16rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.product-card__name {
+  font-weight: 700;
+}
+
+.product-card__meta {
+  font-size: var(--text-sm);
+  color: var(--color-muted);
+}
+
+.product-card__tags {
+  display: flex;
+  gap: var(--space-2);
+}

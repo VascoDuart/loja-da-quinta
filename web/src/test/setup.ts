@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, vi } from 'vitest'
 
 import { resetSessionForTests } from '../features/auth/session'
@@ -16,6 +16,11 @@ window.matchMedia ??= vi.fn().mockImplementation((query: string) => ({
   removeListener: vi.fn(),
   dispatchEvent: vi.fn(),
 }))
+
+// As páginas do backoffice carregam o código à parte (lazy), recuperam a
+// sessão e só depois pedem os dados: 1 s por omissão é pouco com os testes
+// em paralelo.
+configure({ asyncUtilTimeout: 3000 })
 
 // Pedidos sem resposta definida falham o teste: nada vai à rede real.
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
