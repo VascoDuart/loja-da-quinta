@@ -68,7 +68,7 @@ internal/sales/
 
 ## Middleware
 
-Ordem em `internal/platform/httpserver/server.go`. O primeiro é o mais exterior.
+Ordem em `internal/platform/httpserver/server.go`. O primeiro é o mais exterior. A composição dos módulos está em `internal/app`, partilhada pelo `cmd/api` e pelos testes de integração.
 
 | # | Middleware | Porquê aqui |
 |---|---|---|
@@ -79,8 +79,8 @@ Ordem em `internal/platform/httpserver/server.go`. O primeiro é o mais exterior
 | 5 | Rate limit | Antes de qualquer trabalho caro |
 | 6 | Tamanho do corpo (1 MiB) | Antes de ler o corpo |
 | 7 | Timeout (10 s) | Prazo propagado pelo contexto até à base de dados |
-| 8 | Validação OpenAPI | Só nas rotas da spec; recusa pedidos fora do contrato com 400 |
-| — | JWT e RBAC | Chegam com a autenticação (#8) |
+| 8 | JWT | Lê o `Authorization: Bearer` e põe o principal no contexto; não recusa nada |
+| 9 | Validação OpenAPI e RBAC | Primeiro a segurança (401 sem sessão, 403 sem papel, com os papéis da spec); depois parâmetros e corpo (400) |
 
 **Sem CORS:** a API está na mesma origem que o frontend, graças ao rewrite da Vercel ([ADR-0007](../adr/0007-mesma-origem-via-rewrite.md)). Sem cabeçalhos CORS, o browser bloqueia pedidos de outros sites, que é o comportamento que queremos.
 

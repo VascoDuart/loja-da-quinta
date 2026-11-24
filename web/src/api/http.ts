@@ -7,8 +7,10 @@
  *   de 75 s desiste (o proxy da Vercel corta entre 91 e 120 s).
  * - Erros: qualquer resposta fora de 2xx vira um ApiError com o problem+json
  *   da API, incluindo o request ID para encontrar o pedido nos logs.
- *
- * O Bearer e a renovação no 401 chegam com a autenticação (#8).
+ * - Sessão: envia o access token (que só existe em memória) e, num 401,
+ *   renova a sessão uma vez e repete o pedido. Quem fornece o token e a
+ *   renovação é o módulo de sessão (configureAuth), para este ficheiro não
+ *   depender dele.
  */
 import { slowRequests } from './slowRequests'
 
@@ -61,7 +63,36 @@ export type ErrorType<_Error> = ApiError
 /** Forma da resposta que o código gerado pelo orval espera. */
 export type ApiResponse<T> = { data: T; status: number; headers: Headers }
 
+/** O que o apiFetch precisa da sessão. */
+export type AuthHooks = {
+  /** Access token atual, ou null sem sessão. */
+  token: () => string | null
+  /** Renova a sessão. true se houver um access token novo. */
+  refresh: () => Promise<boolean>
+}
+
+let auth: AuthHooks | null = null
+
+export function configureAuth(hooks: AuthHooks | null): void {
+  auth = hooks
+}
+
+/** Os endpoints da sessão nunca levam Bearer nem disparam uma renovação. */
+const isAuthEndpoint = (url: string) => url.includes('/api/v1/auth/')
+
 export async function apiFetch<T>(url: string, init: RequestInit = {}): Promise<T> {
+  try {
+    return await send<T>(url, init)
+  } catch (err) {
+    if (!(err instanceof ApiError) || err.status !== 401 || !auth || isAuthEndpoint(url) || !auth.token()) throw err
+    const renewed = await auth.refresh().catch(() => false)
+    if (!renewed) throw err
+    return send<T>(url, init)
+  }
+}
+
+async function send<T>(url: string, init: RequestInit): Promise<T> {
+  const token = isAuthEndpoint(url) ? null : (auth?.token() ?? null)
   const controller = new AbortController()
   const onCallerAbort = () => controller.abort(init.signal?.reason)
   init.signal?.addEventListener('abort', onCallerAbort, { once: true })
@@ -75,7 +106,11 @@ export async function apiFetch<T>(url: string, init: RequestInit = {}): Promise<
       ...init,
       signal: controller.signal,
       credentials: 'same-origin',
-      headers: { Accept: 'application/json, application/problem+json', ...init.headers },
+      headers: {
+        Accept: 'application/json, application/problem+json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init.headers,
+      },
     })
   } catch (err) {
     if (init.signal?.aborted) throw err // cancelado pelo TanStack Query: não é um erro

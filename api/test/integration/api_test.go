@@ -12,10 +12,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"io"
-	"log/slog"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -23,11 +20,6 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
-	"github.com/VascoDuart/loja-da-quinta/api/internal/health"
-	"github.com/VascoDuart/loja-da-quinta/api/internal/httpapi"
-	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/config"
-	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/db"
-	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/httpserver"
 	"github.com/VascoDuart/loja-da-quinta/api/migrations"
 )
 
@@ -78,31 +70,8 @@ func TestMigrationsApplyAndAreIdempotent(t *testing.T) {
 }
 
 func TestAPIAgainstRealDatabase(t *testing.T) {
-	url := startPostgres(t)
-	ctx := context.Background()
-
-	cfg, err := config.FromLookup(func(k string) (string, bool) {
-		if k == "DATABASE_URL" {
-			return url, true
-		}
-		return "", false
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	pool, err := db.NewPool(ctx, cfg.DatabaseURL, cfg.DatabaseMaxConn)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer pool.Close()
-
-	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := httpserver.NewHandler(cfg, log, &httpapi.Server{Handler: health.NewHandler(pool, log, cfg.Version)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	srv := httptest.NewServer(h)
-	defer srv.Close()
+	env := newEnv(t)
+	srv := env.server(t)
 
 	for _, path := range []string{"/api/v1/healthz", "/api/v1/readyz"} {
 		res, err := http.Get(srv.URL + path)

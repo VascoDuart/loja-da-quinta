@@ -6,6 +6,7 @@
 package httpapi
 
 import (
+	"github.com/VascoDuart/loja-da-quinta/api/internal/auth"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/health"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/httpapi/gen"
 )
@@ -13,6 +14,7 @@ import (
 // Server implementa gen.StrictServerInterface.
 type Server struct {
 	*health.Handler
+	*auth.Endpoints
 }
 
 var _ gen.StrictServerInterface = (*Server)(nil)

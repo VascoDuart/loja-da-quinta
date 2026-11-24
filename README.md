@@ -57,22 +57,28 @@ flowchart LR
 
 ## Correr localmente
 
-Requisitos: Docker. Para desenvolver a API, Go 1.26+; para o frontend (mais tarde), Node 24+.
+Requisitos: Docker, Go 1.26+ e Node 24+.
 
 ```bash
 cp .env.example .env            # muda as palavras-passe
 docker compose up -d --build    # PostgreSQL 16, migrações e API
-curl localhost:8080/api/v1/healthz
+make dev-users                  # gestor@loja.test e funcionario@loja.test (palavra-passe DEV_USER_PASSWORD)
+make web-dev                    # http://localhost:5173
 ```
 
 Comandos da API (testes, lint, geração de código): ver [api/README.md](api/README.md) ou `make help`.
 
-Testes E2E (Playwright), a partir de `web/`:
+**Primeiro gestor num ambiente novo:** a palavra-passe é pedida no terminal, sem aparecer no ecrã nem no histórico.
+
+```bash
+cd api && DATABASE_URL="postgres://..." go run ./cmd/createuser -email maria@quinta.pt -name Maria -role gestor
+```
+
+Testes E2E (Playwright), a partir de `web/`, com a API do compose e as contas do `make dev-users`:
 
 ```bash
 npx playwright install chromium   # só da primeira vez
 npm run e2e                       # arranca o Vite e usa a API em localhost:8080
-API_PROXY_TARGET=https://loja-da-quinta-api-staging.onrender.com npm run e2e   # sem Docker, contra a API de staging
 ```
 
 Para usar o DBeaver: ligação PostgreSQL a `localhost:5432`, base de dados `loja`, utilizador `readonly` e a palavra-passe definida no `.env`.

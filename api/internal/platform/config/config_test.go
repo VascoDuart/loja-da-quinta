@@ -81,9 +81,20 @@ func TestTLSRequiredOutsideDevelopment(t *testing.T) {
 		{"production", "mysql://app:x@neon.tech/loja?sslmode=require", false},
 	}
 	for _, c := range cases {
-		_, err := FromLookup(lookupFrom(map[string]string{"APP_ENV": c.env, "DATABASE_URL": c.url}))
+		_, err := FromLookup(lookupFrom(map[string]string{"APP_ENV": c.env, "DATABASE_URL": c.url, "JWT_SIGNING_KEY": "k:x"}))
 		if (err == nil) != c.ok {
 			t.Errorf("%s %s: ok=%v, erro=%v", c.env, c.url, c.ok, err)
+		}
+	}
+}
+
+func TestJWTSigningKeyRequiredOutsideDevelopment(t *testing.T) {
+	for env, ok := range map[string]bool{"development": true, "staging": false, "production": false} {
+		_, err := FromLookup(lookupFrom(map[string]string{
+			"APP_ENV": env, "DATABASE_URL": "postgres://app:x@neon.tech/loja?sslmode=require",
+		}))
+		if (err == nil) != ok {
+			t.Errorf("%s sem JWT_SIGNING_KEY: ok=%v, erro=%v", env, ok, err)
 		}
 	}
 }

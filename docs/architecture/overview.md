@@ -93,4 +93,6 @@ Papéis na base de dados ([infra/neon/init-roles.sql](../../infra/neon/init-role
 | `app` | a API na Render | só DML (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) |
 | `readonly` | o DBeaver | só `SELECT` |
 
-Segredos no GitHub: `STAGING_MIGRATIONS_DATABASE_URL` (papel `migrator`) e `RENDER_STAGING_DEPLOY_HOOK`. O `DATABASE_URL` da API (papel `app`) está só na Render.
+Segredos no GitHub: `STAGING_MIGRATIONS_DATABASE_URL` (papel `migrator`), `RENDER_STAGING_DEPLOY_HOOK` e as palavras-passe das contas E2E (`E2E_GESTOR_PASSWORD`, `E2E_FUNCIONARIO_PASSWORD`). Na Render ficam o `DATABASE_URL` da API (papel `app`) e o `JWT_SIGNING_KEY`.
+
+As contas `e2e-gestor@loja.test` e `e2e-funcionario@loja.test` são criadas pelo workflow com `createuser -if-missing`, logo depois das migrações. São só de teste: o domínio `.test` é reservado e nunca recebe e-mail.

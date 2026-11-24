@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
-import { Button, Chip, SeasonTip, StockPill } from './ui'
+import { Alert, Button, Chip, SeasonTip, StockPill, TextField } from './ui'
 
 describe('componentes base', () => {
   it('Button é type="button" por omissão, para não submeter formulários por engano', () => {
@@ -32,5 +32,25 @@ describe('componentes base', () => {
   it('SeasonTip é uma região com nome', () => {
     render(<SeasonTip title="Da época · novembro">Laranja e dióspiro</SeasonTip>)
     expect(screen.getByRole('complementary', { name: 'Dica da época' })).toHaveTextContent('Laranja e dióspiro')
+  })
+})
+
+describe('formulários', () => {
+  it('TextField liga a etiqueta e a ajuda ao campo', () => {
+    render(<TextField label="E-mail" hint="O e-mail com que te registaram." type="email" />)
+    const input = screen.getByLabelText('E-mail')
+    expect(input).toHaveAttribute('type', 'email')
+    expect(input).toHaveAccessibleDescription('O e-mail com que te registaram.')
+  })
+
+  it('Alert de erro é anunciado de imediato; o de informação, com calma', () => {
+    render(
+      <>
+        <Alert>Falhou.</Alert>
+        <Alert tone="info">A sessão terminou.</Alert>
+      </>,
+    )
+    expect(screen.getByRole('alert')).toHaveTextContent('Falhou.')
+    expect(screen.getByRole('status')).toHaveTextContent('A sessão terminou.')
   })
 })

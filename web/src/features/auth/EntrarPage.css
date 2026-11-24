@@ -1,0 +1,35 @@
+.entrar {
+  max-width: 26rem;
+  margin: var(--space-6) auto;
+  padding: var(--space-6);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.entrar .page-title {
+  margin: 0;
+}
+
+.entrar__lead {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.entrar__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+@media (max-width: 30rem) {
+  .entrar {
+    margin: 0;
+    padding: var(--space-4);
+    border: 0;
+    background: transparent;
+  }
+}

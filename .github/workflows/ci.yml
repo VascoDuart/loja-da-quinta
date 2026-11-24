@@ -105,12 +105,14 @@ jobs:
           cache-dependency-path: api/go.sum
       - name: Gerar código a partir da OpenAPI
         run: go tool oapi-codegen -config oapi-codegen.yaml ../openapi/openapi.yaml
+      - name: Gerar o código das queries (sqlc)
+        run: docker run --rm -v "$PWD:/src" -w /src sqlc/sqlc:1.31.1@sha256:70f53171d27b2424e9358869975455a6e955a5aa8e58a998a270a6e34e525537 generate
       - name: go mod tidy
         run: go mod tidy
       - name: Confirmar que não há diferenças
         run: |
           if ! git diff --exit-code -- .; then
-            echo "::error::O código gerado ou o go.mod estão desatualizados. Corre 'make api-gen' e 'go mod tidy' e faz commit."
+            echo "::error::O código gerado ou o go.mod estão desatualizados. Corre 'make api-gen', 'make api-sqlc' e 'go mod tidy' e faz commit."
             exit 1
           fi
 

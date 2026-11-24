@@ -1,7 +1,8 @@
 // Comando api: arranca a API da Loja da Quinta.
 //
-// Aqui só se faz a composição: ler a configuração, criar os adaptadores e
-// injetá-los nos módulos. Não há framework de injeção de dependências.
+// Aqui só se lê a configuração, se abre a base de dados e se arranca o
+// servidor. A composição dos módulos está em internal/app, partilhada com os
+// testes de integração. Não há framework de injeção de dependências.
 package main
 
 import (
@@ -11,8 +12,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/VascoDuart/loja-da-quinta/api/internal/health"
-	"github.com/VascoDuart/loja-da-quinta/api/internal/httpapi"
+	"github.com/VascoDuart/loja-da-quinta/api/internal/app"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/config"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/db"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/httpserver"
@@ -43,11 +43,7 @@ func run() error {
 	}
 	defer pool.Close()
 
-	api := &httpapi.Server{
-		Handler: health.NewHandler(pool, log, cfg.Version),
-	}
-
-	handler, err := httpserver.NewHandler(cfg, log, api)
+	handler, err := app.New(ctx, cfg, log, pool)
 	if err != nil {
 		return err
 	}

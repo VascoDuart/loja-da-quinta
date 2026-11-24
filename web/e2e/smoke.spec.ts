@@ -1,5 +1,7 @@
 import AxeBuilder from '@axe-core/playwright'
-import { expect, test } from '@playwright/test'
+import { expect, type Page, test } from '@playwright/test'
+
+import { login } from './accounts'
 
 // Testes de fumo: provam que o frontend, o rewrite /api, a API e a base de
 // dados funcionam juntos, e que as páginas principais são acessíveis.
@@ -11,13 +13,13 @@ test('o catálogo público abre com a marca e o título', async ({ page }) => {
 })
 
 test('o painel chega à base de dados através do rewrite /api', async ({ page }) => {
-  await page.goto('/app/painel')
+  await login(page, 'gestor', '/app/painel')
   await expect(page.getByRole('heading', { name: 'Painel', level: 1 })).toBeVisible()
   await expect(page.getByText('Servidor pronto. A base de dados responde.')).toBeVisible()
 })
 
 test('o tema escuro mantém-se ao mudar de página', async ({ page }) => {
-  await page.goto('/app/venda')
+  await login(page, 'funcionario', '/app/venda')
   await expect(page.getByRole('heading', { name: 'Venda', level: 1 })).toBeVisible()
   const html = page.locator('html')
   // O botão pode estar no modo oposto se o sistema já estiver em escuro.
@@ -35,17 +37,26 @@ test('um endereço desconhecido mostra a página 404', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Página não encontrada' })).toBeVisible()
 })
 
+async function expectNoAxeViolations(page: Page) {
+  await page.waitForLoadState('networkidle')
+  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+  expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([])
+}
+
 for (const colorScheme of ['light', 'dark'] as const) {
   test.describe(`modo ${colorScheme === 'light' ? 'claro' : 'escuro'}`, () => {
     test.use({ colorScheme })
 
-    for (const path of ['/', '/app/painel']) {
+    for (const path of ['/', '/entrar']) {
       test(`${path} não tem problemas de acessibilidade WCAG 2.1 AA`, async ({ page }) => {
         await page.goto(path)
-        await page.waitForLoadState('networkidle')
-        const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
-        expect(results.violations.map((v) => `${v.id}: ${v.help}`)).toEqual([])
+        await expectNoAxeViolations(page)
       })
     }
+
+    test('/app/painel não tem problemas de acessibilidade WCAG 2.1 AA', async ({ page }) => {
+      await login(page, 'gestor', '/app/painel')
+      await expectNoAxeViolations(page)
+    })
   })
 }

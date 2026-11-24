@@ -41,6 +41,14 @@ type Config struct {
 	RateLimitRPS   float64
 	RateLimitBurst int
 
+	// JWTSigningKey assina os access tokens ("kid:seed", gerada com
+	// go run ./cmd/jwtkey). Obrigatória fora do ambiente local; localmente,
+	// sem ela, a API usa uma chave temporária.
+	JWTSigningKey string
+	// JWTVerifyKeys são chaves públicas antigas que ainda verificam tokens
+	// depois de uma troca de chave ("kid:pub,kid:pub").
+	JWTVerifyKeys string
+
 	MaxBodyBytes    int64
 	RequestTimeout  time.Duration
 	ShutdownTimeout time.Duration
@@ -66,6 +74,8 @@ func FromLookup(lookup func(string) (string, bool)) (Config, error) {
 		TrustedProxyHops: r.int("TRUSTED_PROXY_HOPS", 0),
 		RateLimitRPS:     r.float("RATE_LIMIT_RPS", 10),
 		RateLimitBurst:   r.int("RATE_LIMIT_BURST", 20),
+		JWTSigningKey:    r.str("JWT_SIGNING_KEY", ""),
+		JWTVerifyKeys:    r.str("JWT_VERIFY_KEYS", ""),
 		MaxBodyBytes:     int64(r.int("MAX_BODY_BYTES", 1<<20)),
 		RequestTimeout:   r.duration("REQUEST_TIMEOUT", 10*time.Second),
 		ShutdownTimeout:  r.duration("SHUTDOWN_TIMEOUT", 15*time.Second),
@@ -111,6 +121,9 @@ func (c Config) validate() []error {
 	}
 	if c.DatabaseURL != "" {
 		errs = append(errs, c.validateDatabaseURL()...)
+	}
+	if c.Env != EnvDevelopment && c.JWTSigningKey == "" {
+		errs = append(errs, fmt.Errorf("JWT_SIGNING_KEY é obrigatória em %s", c.Env))
 	}
 	return errs
 }

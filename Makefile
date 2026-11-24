@@ -7,7 +7,7 @@ GOLANGCI_LINT := go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v
 SQLC_IMAGE    := sqlc/sqlc:1.31.1
 
 .PHONY: help up down db-up db-down db-reset db-psql \
-        api-gen api-sqlc api-test api-test-integration api-lint api-run \
+        api-gen api-sqlc api-test api-test-integration api-lint api-run dev-users jwt-key \
         web-install web-dev web-test web-lint web-build
 
 help: ## Mostra os alvos disponíveis
@@ -53,6 +53,18 @@ api-lint: ## golangci-lint (inclui gosec e depguard)
 
 api-run: ## Corre a API localmente contra o PostgreSQL do compose
 	cd api && DATABASE_URL="postgres://app:$${DB_APP_PASSWORD:-troca-me-app}@localhost:5432/loja?sslmode=disable" go run ./cmd/api
+
+# Contas para experimentar localmente, com a palavra-passe DEV_USER_PASSWORD
+# (ver .env.example). Só para a base de dados local.
+LOCAL_APP_DB := postgres://app:$${DB_APP_PASSWORD:-troca-me-app}@localhost:5432/loja?sslmode=disable
+DEV_PASSWORD := $${DEV_USER_PASSWORD:-troca-me-dev-local}
+
+dev-users: ## Cria gestor@loja.test e funcionario@loja.test na BD local
+	cd api && DATABASE_URL="$(LOCAL_APP_DB)" NEW_USER_PASSWORD="$(DEV_PASSWORD)" go run ./cmd/createuser -if-missing -email gestor@loja.test -name "Gestora de teste" -role gestor
+	cd api && DATABASE_URL="$(LOCAL_APP_DB)" NEW_USER_PASSWORD="$(DEV_PASSWORD)" go run ./cmd/createuser -if-missing -email funcionario@loja.test -name "Funcionário de teste" -role funcionario
+
+jwt-key: ## Gera uma chave para JWT_SIGNING_KEY (só no stdout, para um gestor de segredos)
+	@cd api && go run ./cmd/jwtkey
 
 # --- Frontend (React + TS) --------------------------------------------------
 

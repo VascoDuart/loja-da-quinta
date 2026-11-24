@@ -127,3 +127,54 @@
   font-weight: 800;
   line-height: 1.25;
 }
+
+/* Campos de formulário */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.field__label {
+  font-size: var(--text-sm);
+  font-weight: 700;
+}
+
+.field__input {
+  min-height: var(--touch);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-muted);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.field__input:focus-visible {
+  outline: none;
+  border-color: var(--color-green);
+  box-shadow: var(--focus-ring);
+}
+
+.field__hint {
+  font-size: var(--text-xs);
+  color: var(--color-muted);
+}
+
+/* Mensagens */
+.alert {
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.alert--error {
+  background: var(--color-bad);
+  color: var(--color-bad-text);
+}
+
+.alert--info {
+  background: var(--color-tip);
+  color: var(--color-tip-text);
+}
