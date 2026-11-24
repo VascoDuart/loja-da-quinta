@@ -9,6 +9,9 @@
  *   como roubo e termina a sessão. Por isso, as renovações em simultâneo
  *   partilham o mesmo pedido e, entre separadores, esperam umas pelas outras
  *   com um Web Lock.
+ * - O login usa o mesmo Web Lock: uma renovação lenta (a API a acordar) que
+ *   acabasse depois do login responderia 401 e apagaria o cookie acabado de
+ *   receber. A pessoa entrava e saía logo a seguir.
  */
 import { useSyncExternalStore } from 'react'
 
@@ -27,11 +30,14 @@ export type SessionState =
 
 /** Cabeçalho anti-CSRF que a API exige nos pedidos de sessão. */
 const CSRF = { 'X-CSRF': '1' }
-const LOCK_NAME = 'loja-da-quinta:refresh'
+const LOCK_NAME = 'loja-da-quinta:session'
 
 let accessToken: string | null = null
 let state: SessionState = { status: 'loading' }
 let refreshing: Promise<boolean> | null = null
+// Muda a cada sessão iniciada: uma resposta de uma renovação mais antiga do
+// que a sessão atual nunca a termina.
+let epoch = 0
 const listeners = new Set<() => void>()
 
 function setState(next: SessionState) {
@@ -40,6 +46,7 @@ function setState(next: SessionState) {
 }
 
 function start(s: Session) {
+  epoch++
   accessToken = s.accessToken
   setState({ status: 'authenticated', user: s.user })
 }
@@ -65,10 +72,15 @@ export function useSession(): SessionState {
 
 /** Inicia sessão. Lança ApiError (401 credenciais, 429 bloqueio). */
 export async function signIn(email: string, password: string): Promise<User> {
-  const res = await loginRequest({ email, password }, { headers: CSRF })
-  if (res.status !== 200) throw new ApiError(res.status)
-  start(res.data)
-  return res.data.user
+  // Espera pela renovação em curso neste separador (sem Web Locks, como nos
+  // testes, é a única proteção) e depois pelo lock partilhado com os outros.
+  if (refreshing) await refreshing.catch(() => false)
+  return withLock(async () => {
+    const res = await loginRequest({ email, password }, { headers: CSRF })
+    if (res.status !== 200) throw new ApiError(res.status)
+    start(res.data)
+    return res.data.user
+  })
 }
 
 /**
@@ -77,6 +89,7 @@ export async function signIn(email: string, password: string): Promise<User> {
  */
 export function refresh(): Promise<boolean> {
   refreshing ??= withLock(async () => {
+    const startedAt = epoch
     try {
       const res = await refreshRequest({ headers: CSRF })
       if (res.status !== 200) throw new ApiError(res.status)
@@ -84,7 +97,8 @@ export function refresh(): Promise<boolean> {
       return true
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        end('expired')
+        // Só termina a sessão que existia quando a renovação começou.
+        if (epoch === startedAt) end('expired')
         return false
       }
       throw err
@@ -129,6 +143,7 @@ configureAuth({ token: () => accessToken, refresh })
 
 /** Só para os testes: volta ao estado inicial. */
 export function resetSessionForTests(): void {
+  epoch = 0
   accessToken = null
   refreshing = null
   state = { status: 'loading' }
