@@ -9,6 +9,8 @@ servers:
   - url: /api/v1
 tags:
   - name: health
+  - name: auth
+    description: Sessão dos utilizadores internos (ADR-0005)
 paths:
   /healthz:
     get:
@@ -38,6 +40,93 @@ paths:
                 $ref: "#/components/schemas/Health"
         "503":
           $ref: "#/components/responses/Problem"
+  /auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Inicia sessão com e-mail e palavra-passe
+      description: |
+        Devolve o access token (15 min) no corpo e o refresh token (7 dias) num
+        cookie HttpOnly. O erro é sempre o mesmo para e-mail desconhecido,
+        palavra-passe errada ou conta desativada.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Csrf"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          $ref: "#/components/responses/SessionStarted"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "429":
+          $ref: "#/components/responses/Problem"
+  /auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refreshSession
+      summary: Renova a sessão com o refresh token do cookie
+      description: |
+        Roda o refresh token: o antigo deixa de valer e chega um novo no
+        cookie. Se aparecer um refresh já usado, a família inteira é revogada
+        (deteção de reutilização) e a sessão termina.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Csrf"
+        - $ref: "#/components/parameters/RefreshCookie"
+      responses:
+        "200":
+          $ref: "#/components/responses/SessionStarted"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/SessionEnded"
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Termina a sessão
+      description: Revoga a família do refresh token e apaga o cookie. Responde 204 mesmo sem sessão.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Csrf"
+        - $ref: "#/components/parameters/RefreshCookie"
+      responses:
+        "204":
+          description: Sessão terminada
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/ClearRefreshCookie"
+        "400":
+          $ref: "#/components/responses/Problem"
+  /me:
+    get:
+      tags: [auth]
+      operationId: getMe
+      summary: Utilizador da sessão atual
+      security:
+        - bearerAuth: [funcionario, gestor]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+# Tudo é negado por omissão (docs/security/authz-matrix.md). Os papéis com
+# acesso a cada operação vão na lista do bearerAuth (OpenAPI 3.1 permite
+# papéis em esquemas que não são OAuth). Uma lista vazia não deixa ninguém
+# entrar; uma operação pública declara `security: []`.
 security:
   - bearerAuth: []
 components:
@@ -46,9 +135,54 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+  parameters:
+    Csrf:
+      name: X-CSRF
+      in: header
+      required: true
+      description: Proteção contra CSRF. Um site de outra origem não consegue enviar este cabeçalho sem um preflight CORS, que a API nunca aceita.
+      schema:
+        type: string
+        enum: ["1"]
+    RefreshCookie:
+      name: refresh_token
+      in: cookie
+      required: false
+      schema:
+        type: string
+        maxLength: 128
+  headers:
+    SetRefreshCookie:
+      description: "refresh_token=…; Path=/api/v1/auth; Max-Age=604800; HttpOnly; Secure; SameSite=Strict"
+      required: true
+      schema:
+        type: string
+    ClearRefreshCookie:
+      description: "refresh_token=; Path=/api/v1/auth; Max-Age=0; HttpOnly; Secure; SameSite=Strict"
+      required: true
+      schema:
+        type: string
   responses:
     Problem:
       description: Erro no formato RFC 9457 (problem+json)
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    SessionStarted:
+      description: Sessão iniciada ou renovada
+      headers:
+        Set-Cookie:
+          $ref: "#/components/headers/SetRefreshCookie"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Session"
+    SessionEnded:
+      description: Sem sessão válida. O cookie é apagado.
+      headers:
+        Set-Cookie:
+          $ref: "#/components/headers/ClearRefreshCookie"
       content:
         application/problem+json:
           schema:
@@ -65,6 +199,51 @@ components:
           type: string
           description: Commit da versão em execução ("dev" em desenvolvimento). O deploy usa-o para saber quando a versão nova já está no ar.
           example: 3c81f75
+    Role:
+      type: string
+      enum: [funcionario, gestor]
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          minLength: 3
+          maxLength: 254
+        password:
+          type: string
+          minLength: 1
+          maxLength: 128
+    User:
+      type: object
+      required: [id, email, name, role]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+    Session:
+      type: object
+      required: [accessToken, tokenType, expiresIn, user]
+      properties:
+        accessToken:
+          type: string
+          description: JWT Ed25519. Fica só em memória no browser.
+        tokenType:
+          type: string
+          enum: [Bearer]
+        expiresIn:
+          type: integer
+          description: Segundos até o access token expirar.
+          example: 900
+        user:
+          $ref: "#/components/schemas/User"
     Problem:
       type: object
       required: [type, title, status]

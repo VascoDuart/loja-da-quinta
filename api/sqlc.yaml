@@ -2,8 +2,8 @@
 # O esquema vem das migrações; as queries ficam em queries/.
 # Corre com: make api-sqlc (usa a imagem Docker oficial, sem instalar nada).
 #
-# Ainda não há queries: o primeiro módulo com tabelas (#8, autenticação)
-# acrescenta queries/<modulo>.sql e o código passa a ser gerado.
+# Cada módulo tem o seu ficheiro em queries/ e só usa as suas queries
+# (um módulo nunca lê as tabelas de outro, ADR-0001).
 version: "2"
 sql:
   - engine: postgresql
@@ -17,3 +17,13 @@ sql:
         emit_interface: true
         emit_empty_slices: true
         emit_pointers_for_null_types: true
+        overrides:
+          - db_type: uuid
+            go_type: github.com/google/uuid.UUID
+          - db_type: timestamptz
+            go_type: time.Time
+          - db_type: timestamptz
+            nullable: true
+            go_type:
+              type: time.Time
+              pointer: true
