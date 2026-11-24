@@ -160,3 +160,45 @@ func (in ProductInput) Normalized() ProductInput {
 	}
 	return in
 }
+
+// Availability é o estado do stock de um produto como o público o vê: sem
+// quantidades exatas (information disclosure, modelo de ameaças).
+type Availability string
+
+const (
+	Available Availability = "disponivel"
+	Low       Availability = "pouco"
+	SoldOut   Availability = "esgotado"
+)
+
+// AvailabilityOf decide a disponibilidade a partir do stock e do limiar de
+// stock baixo do produto, ambos em milésimos da unidade:
+//
+//   - esgotado: stock 0 (ou menos);
+//   - pouco: stock abaixo do limiar (low_stock); um limiar 0 nunca dá "pouco";
+//   - disponivel: nos outros casos.
+func AvailabilityOf(stockMilli, lowStockMilli int64) Availability {
+	switch {
+	case stockMilli <= 0:
+		return SoldOut
+	case stockMilli < lowStockMilli:
+		return Low
+	default:
+		return Available
+	}
+}
+
+// PublicProduct é o que o catálogo público mostra de um produto. De
+// propósito não tem IVA, limiar de stock, "ativo" nem datas, e a
+// disponibilidade substitui a quantidade.
+type PublicProduct struct {
+	ID           uuid.UUID
+	Name         string
+	CategoryName string
+	Unit         Unit
+	PriceCents   int
+	SeasonMonths []int
+	// ImageVersion é o hash da imagem grande, ou "" sem imagem.
+	ImageVersion string
+	Availability Availability
+}

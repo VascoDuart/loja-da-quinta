@@ -8,6 +8,7 @@ import {
   formatQuantity,
   formatSeason,
   formatUnitPrice,
+  lisbonMonth,
   milliToInput,
   parseEuroToCents,
   parseQuantityToMilli,
@@ -129,5 +130,15 @@ describe('formulários: texto ⇄ inteiros', () => {
     [[1, 2, 11, 12], 'nov, dez, jan, fev'],
   ])('formatSeason(%j) = %j', (months, text) => {
     expect(formatSeason(months)).toBe(text)
+  })
+})
+
+describe('lisbonMonth', () => {
+  it.each([
+    ['2026-07-15T12:00:00Z', 7],
+    ['2026-12-31T23:30:00Z', 12],
+    ['2026-06-30T23:30:00Z', 7],
+  ])('%s: mês %i na hora de Lisboa (no verão, UTC+1)', (iso, month) => {
+    expect(lisbonMonth(new Date(iso))).toBe(month)
   })
 })

@@ -30,6 +30,7 @@ export const handlers = [
   http.get('*/api/v1/users', () => HttpResponse.json([])),
   http.get('*/api/v1/categories', () => HttpResponse.json([])),
   http.get('*/api/v1/products', () => HttpResponse.json([])),
+  http.get('*/api/v1/public/catalog', () => HttpResponse.json([])),
 ]
 
 export const server = setupServer(...handlers)

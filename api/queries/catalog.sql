@@ -89,3 +89,15 @@ SELECT i.data, i.sha256, l.sha256 AS version
 FROM product_images i
 JOIN product_images l ON l.product_id = i.product_id AND l.size = 'large'
 WHERE i.product_id = $1 AND i.size = $2;
+
+-- Catálogo público: só produtos ativos e públicos, e só as colunas que o
+-- público pode ver (nunca IVA, limiar de stock, ativo nem datas). O limiar
+-- vem só para o serviço decidir a disponibilidade; não sai para a API.
+-- name: ListPublicProducts :many
+SELECT p.id, c.name AS category_name, p.name, p.unit, p.price_cents, p.season_months,
+       (p.low_stock * 1000)::bigint AS low_stock_milli, i.sha256 AS image_sha256
+FROM products p
+JOIN categories c ON c.id = p.category_id
+LEFT JOIN product_images i ON i.product_id = p.id AND i.size = 'large'
+WHERE p.active AND p.is_public
+ORDER BY lower(c.name), lower(p.name);

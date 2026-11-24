@@ -27,6 +27,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  CatalogItem,
   Category,
   CategoryInput,
   GetProductImageParams,
@@ -1545,6 +1546,122 @@ export function useGetProductImage<TData = Awaited<ReturnType<typeof getProductI
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
   const queryOptions = getGetProductImageQueryOptions(id,params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type getPublicCatalogResponse200 = {
+  data: CatalogItem[]
+  status: 200
+}
+
+export type getPublicCatalogResponseSuccess = (getPublicCatalogResponse200) & {
+  headers: Headers;
+};
+;
+
+export type getPublicCatalogResponse = (getPublicCatalogResponseSuccess)
+
+export const getGetPublicCatalogUrl = () => {
+
+
+
+
+  return `/api/v1/public/catalog`
+}
+
+/**
+ * Os produtos ativos e visíveis no catálogo, por categoria e nome.
+ * Devolve só o que uma pessoa precisa para escolher: nunca quantidades
+ * exatas, IVA, limiar de stock nem datas internas. A resposta pode
+ * ficar 60 s em cache (Cache-Control).
+ * @summary Catálogo público (sem sessão)
+ */
+export const getPublicCatalog = async ( options?: Parameters<typeof apiFetch>[1]): Promise<getPublicCatalogResponse> => {
+
+  return apiFetch<getPublicCatalogResponse>(getGetPublicCatalogUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPublicCatalogQueryKey = () => {
+    return [
+    `/api/v1/public/catalog`
+    ] as const;
+    }
+
+
+export const getGetPublicCatalogQueryOptions = <TData = Awaited<ReturnType<typeof getPublicCatalog>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPublicCatalog>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPublicCatalogQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicCatalog>>> = ({ signal }) => getPublicCatalog({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPublicCatalog>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetPublicCatalogQueryResult = NonNullable<Awaited<ReturnType<typeof getPublicCatalog>>>
+export type GetPublicCatalogQueryError = ErrorType<unknown>
+
+
+export function useGetPublicCatalog<TData = Awaited<ReturnType<typeof getPublicCatalog>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPublicCatalog>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPublicCatalog>>,
+          TError,
+          Awaited<ReturnType<typeof getPublicCatalog>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPublicCatalog<TData = Awaited<ReturnType<typeof getPublicCatalog>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPublicCatalog>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPublicCatalog>>,
+          TError,
+          Awaited<ReturnType<typeof getPublicCatalog>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPublicCatalog<TData = Awaited<ReturnType<typeof getPublicCatalog>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPublicCatalog>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Catálogo público (sem sessão)
+ */
+
+export function useGetPublicCatalog<TData = Awaited<ReturnType<typeof getPublicCatalog>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPublicCatalog>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetPublicCatalogQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

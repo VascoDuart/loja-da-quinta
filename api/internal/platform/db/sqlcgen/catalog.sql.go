@@ -315,6 +315,59 @@ func (q *Queries) ListProducts(ctx context.Context) ([]ListProductsRow, error) {
 	return items, nil
 }
 
+const listPublicProducts = `-- name: ListPublicProducts :many
+SELECT p.id, c.name AS category_name, p.name, p.unit, p.price_cents, p.season_months,
+       (p.low_stock * 1000)::bigint AS low_stock_milli, i.sha256 AS image_sha256
+FROM products p
+JOIN categories c ON c.id = p.category_id
+LEFT JOIN product_images i ON i.product_id = p.id AND i.size = 'large'
+WHERE p.active AND p.is_public
+ORDER BY lower(c.name), lower(p.name)
+`
+
+type ListPublicProductsRow struct {
+	ID            uuid.UUID
+	CategoryName  string
+	Name          string
+	Unit          string
+	PriceCents    int32
+	SeasonMonths  []int16
+	LowStockMilli int64
+	ImageSha256   []byte
+}
+
+// Catálogo público: só produtos ativos e públicos, e só as colunas que o
+// público pode ver (nunca IVA, limiar de stock, ativo nem datas). O limiar
+// vem só para o serviço decidir a disponibilidade; não sai para a API.
+func (q *Queries) ListPublicProducts(ctx context.Context) ([]ListPublicProductsRow, error) {
+	rows, err := q.db.Query(ctx, listPublicProducts)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPublicProductsRow{}
+	for rows.Next() {
+		var i ListPublicProductsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CategoryName,
+			&i.Name,
+			&i.Unit,
+			&i.PriceCents,
+			&i.SeasonMonths,
+			&i.LowStockMilli,
+			&i.ImageSha256,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockProduct = `-- name: LockProduct :one
 SELECT id FROM products WHERE id = $1 FOR UPDATE
 `

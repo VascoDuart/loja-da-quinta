@@ -18,11 +18,19 @@ type Service struct {
 	// Uma imagem de 40 MP descodificada ocupa centenas de MB: processa-se uma
 	// de cada vez, para caber nos 512 MB da Render.
 	imageSlots chan struct{}
+	stock      StockSource
 }
 
 // NewService cria o serviço.
 func NewService(repo Repo, images ImageStore) *Service {
-	return &Service{repo: repo, images: images, imageSlots: make(chan struct{}, 1)}
+	return &Service{repo: repo, images: images, imageSlots: make(chan struct{}, 1), stock: UntrackedStock{}}
+}
+
+// WithStock liga o stock real ao catálogo público (#12). Sem isto, todos os
+// produtos aparecem como disponíveis.
+func (s *Service) WithStock(stock StockSource) *Service {
+	s.stock = stock
+	return s
 }
 
 // --- Categorias ------------------------------------------------------------
@@ -103,6 +111,36 @@ func (s *Service) DeleteProduct(ctx context.Context, actor identity.Principal, i
 		return err
 	}
 	return s.repo.DeleteProduct(ctx, id)
+}
+
+// PublicCatalog devolve os produtos ativos e públicos, com a disponibilidade
+// calculada a partir do stock. É público: não recebe quem pede.
+func (s *Service) PublicCatalog(ctx context.Context) ([]PublicProduct, error) {
+	products, err := s.repo.ListPublicProducts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]uuid.UUID, len(products))
+	for i, p := range products {
+		ids[i] = p.ID
+	}
+	stock, err := s.stock.StockMilli(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]PublicProduct, len(products))
+	for i, p := range products {
+		availability := Available
+		if milli, tracked := stock[p.ID]; tracked {
+			availability = AvailabilityOf(milli, p.LowStockMilli)
+		}
+		out[i] = PublicProduct{
+			ID: p.ID, Name: p.Name, CategoryName: p.CategoryName, Unit: p.Unit,
+			PriceCents: p.PriceCents, SeasonMonths: p.SeasonMonths,
+			ImageVersion: p.ImageVersion, Availability: availability,
+		}
+	}
+	return out, nil
 }
 
 // --- Imagens ---------------------------------------------------------------

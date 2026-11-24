@@ -31,6 +31,7 @@ const (
 	msgTooLarge         = "A imagem é demasiado grande: no máximo 5 MB e 40 megapíxeis."
 	msgInvalidImage     = "Não foi possível ler a imagem. O ficheiro pode estar danificado."
 	cacheForever        = "public, max-age=31536000, immutable"
+	cacheCatalog        = "public, max-age=60"
 )
 
 // --- Categorias ------------------------------------------------------------
@@ -231,7 +232,37 @@ func (h *Endpoints) GetProductImage(ctx context.Context, req gen.GetProductImage
 	}, nil
 }
 
+// GetPublicCatalog devolve o catálogo público. O middleware de segurança põe
+// no-store em tudo; aqui a resposta troca-o por 60 s de cache (o catálogo é
+// o que mais tráfego recebe e muda pouco).
+func (h *Endpoints) GetPublicCatalog(ctx context.Context, _ gen.GetPublicCatalogRequestObject) (gen.GetPublicCatalogResponseObject, error) {
+	list, err := h.svc.PublicCatalog(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]gen.CatalogItem, len(list))
+	for i, p := range list {
+		items[i] = toCatalogItem(p)
+	}
+	return gen.GetPublicCatalog200JSONResponse{
+		Body:    items,
+		Headers: gen.GetPublicCatalog200ResponseHeaders{CacheControl: cacheCatalog},
+	}, nil
+}
+
 // --- Conversões ------------------------------------------------------------
+
+func toCatalogItem(p PublicProduct) gen.CatalogItem {
+	out := gen.CatalogItem{
+		Id: p.ID, Name: p.Name, CategoryName: p.CategoryName, Unit: gen.Unit(p.Unit),
+		PriceCents: p.PriceCents, SeasonMonths: p.SeasonMonths,
+		Availability: gen.Availability(p.Availability),
+	}
+	if p.ImageVersion != "" {
+		out.Image = &gen.ProductImage{Version: p.ImageVersion}
+	}
+	return out
+}
 
 func actor(ctx context.Context) identity.Principal {
 	p, _ := identity.From(ctx)
