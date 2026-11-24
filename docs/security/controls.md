@@ -54,6 +54,7 @@ Detalhes que fecham buracos conhecidos:
 - **Pedidos em simultâneo:** a rotação bloqueia a linha do token (`SELECT … FOR UPDATE`), por isso dois pedidos com o mesmo refresh nunca rodam os dois. No browser, as renovações partilham o mesmo pedido e, entre separadores, esperam umas pelas outras (Web Locks), para um utilizador legítimo nunca ser confundido com um roubo.
 - **Enumeração de contas:** e-mail desconhecido, palavra-passe errada e conta desativada dão a mesma mensagem e demoram o mesmo (um e-mail desconhecido também calcula um argon2id). O bloqueio por conta aplica-se a qualquer e-mail, exista ou não.
 - **Só as falhas contam:** os limites do login contam tentativas falhadas. Quem acerta na palavra-passe nunca é travado por outra pessoa no mesmo IP (por exemplo, a rede da quinta).
+- **Desativar termina as sessões:** desativar um utilizador, mudar-lhe o papel ou definir-lhe uma palavra-passe nova revoga todos os refresh tokens dele. O access token que já tem continua válido até expirar (no máximo 15 minutos), mas a renovação já não o deixa continuar. É o compromisso de um JWT curto sem consulta à base de dados em cada pedido.
 - **Algoritmo fixo:** o access token só é aceite com `alg: EdDSA` e um `kid` conhecido, o que impede `alg: none` e a troca de algoritmo.
 - **Memória:** no máximo 4 cálculos de argon2id em simultâneo (19 MiB cada), para um ataque não esgotar os 512 MiB da Render.
 

@@ -27,6 +27,17 @@ const stockLabel: Record<StockLevel, string> = {
   esgotado: 'Esgotado',
 }
 
+/** Etiqueta curta com cor; o texto diz sempre o mesmo que a cor (WCAG 1.4.1). */
+export function Pill({
+  tone = 'neutral',
+  children,
+}: {
+  tone?: 'ok' | 'warn' | 'bad' | 'neutral'
+  children: ReactNode
+}) {
+  return <span className={`pill pill--${tone}`}>{children}</span>
+}
+
 /** Nível de stock: a cor acompanha sempre o texto (WCAG 1.4.1). */
 export function StockPill({ level }: { level: StockLevel }) {
   return <span className={`pill pill--${level}`}>{stockLabel[level]}</span>
@@ -48,7 +59,7 @@ export function SeasonTip({ title, children, image }: { title: string; children:
 type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'id'> & {
   label: string
   /** Texto de ajuda por baixo do campo. */
-  hint?: string
+  hint?: string | undefined
 }
 
 /** Campo de texto com etiqueta visível (WCAG 3.3.2) e altura de toque de 44 px. */
@@ -78,6 +89,79 @@ export function Alert({ tone = 'error', children }: { tone?: 'error' | 'info'; c
   return (
     <div role={tone === 'error' ? 'alert' : 'status'} className={`alert alert--${tone}`}>
       {children}
+    </div>
+  )
+}
+
+type Option<T extends string> = { value: T; label: string }
+
+type RadioGroupProps<T extends string> = {
+  legend: string
+  name: string
+  value: T
+  options: readonly Option<T>[]
+  onChange: (value: T) => void
+  disabled?: boolean
+  hint?: string | undefined
+}
+
+/** Escolha entre poucas opções, todas à vista (melhor que um select com duas). */
+export function RadioGroup<T extends string>({
+  legend,
+  name,
+  value,
+  options,
+  onChange,
+  disabled,
+  hint,
+}: RadioGroupProps<T>) {
+  const hintId = useId()
+  return (
+    <fieldset className="choice" disabled={disabled} aria-describedby={hint ? hintId : undefined}>
+      <legend className="field__label">{legend}</legend>
+      <div className="choice__options">
+        {options.map((o) => (
+          <label key={o.value} className="choice__option">
+            <input
+              type="radio"
+              name={name}
+              value={o.value}
+              checked={value === o.value}
+              onChange={() => onChange(o.value)}
+            />
+            {o.label}
+          </label>
+        ))}
+      </div>
+      {hint && (
+        <span id={hintId} className="field__hint">
+          {hint}
+        </span>
+      )}
+    </fieldset>
+  )
+}
+
+type CheckboxProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'type' | 'id'> & {
+  label: string
+  hint?: string | undefined
+}
+
+/** Caixa de verificação com etiqueta clicável e área de toque de 44 px. */
+export function Checkbox({ label, hint, ...props }: CheckboxProps) {
+  const id = useId()
+  const hintId = hint ? `${id}-hint` : undefined
+  return (
+    <div className="field">
+      <label htmlFor={id} className="choice__option">
+        <input id={id} type="checkbox" aria-describedby={hintId} {...props} />
+        {label}
+      </label>
+      {hint && (
+        <span id={hintId} className="field__hint">
+          {hint}
+        </span>
+      )}
     </div>
   )
 }

@@ -12,7 +12,7 @@ import {
   IconUtilizadores,
   IconVenda,
 } from '../../shared/ui/icons'
-import { backofficeNav, type Role, type RouteHandle } from '../routes'
+import { backofficeNav, type Role, roleLabel, type RouteHandle } from '../routes'
 import { useDocumentTitle, usePageTitle } from '../useDocumentTitle'
 
 const icons: Record<string, ReactNode> = {
@@ -24,8 +24,6 @@ const icons: Record<string, ReactNode> = {
   '/app/utilizadores': <IconUtilizadores />,
   '/app/auditoria': <IconAuditoria />,
 }
-
-const roleLabel: Record<Role, string> = { gestor: 'Gestor', funcionario: 'Funcionário' }
 
 /** Papéis da rota mais específica que os declara. */
 function useRouteRoles(): readonly Role[] | undefined {

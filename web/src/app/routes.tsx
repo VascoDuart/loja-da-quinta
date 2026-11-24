@@ -7,6 +7,8 @@ import { NotFoundPage } from './NotFoundPage'
 /** Papéis do backoffice (docs/security/authz-matrix.md). */
 export type Role = 'funcionario' | 'gestor'
 
+export const roleLabel: Record<Role, string> = { gestor: 'Gestor', funcionario: 'Funcionário' }
+
 /**
  * Metadados de cada rota.
  * - `title`: título da página (separador do browser e cabeçalho).

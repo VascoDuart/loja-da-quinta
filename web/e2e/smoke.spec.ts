@@ -54,8 +54,17 @@ for (const colorScheme of ['light', 'dark'] as const) {
       })
     }
 
-    test('/app/painel não tem problemas de acessibilidade WCAG 2.1 AA', async ({ page }) => {
-      await login(page, 'gestor', '/app/painel')
+    for (const path of ['/app/painel', '/app/utilizadores']) {
+      test(`${path} não tem problemas de acessibilidade WCAG 2.1 AA`, async ({ page }) => {
+        await login(page, 'gestor', path)
+        await expectNoAxeViolations(page)
+      })
+    }
+
+    test('o formulário de utilizador não tem problemas de acessibilidade WCAG 2.1 AA', async ({ page }) => {
+      await login(page, 'gestor', '/app/utilizadores')
+      await page.getByRole('button', { name: 'Novo utilizador' }).click()
+      await expect(page.getByLabel('E-mail')).toBeVisible()
       await expectNoAxeViolations(page)
     })
   })
