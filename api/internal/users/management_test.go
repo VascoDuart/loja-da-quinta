@@ -150,6 +150,7 @@ func TestUpdateValidation(t *testing.T) {
 	for name, upd := range map[string]Update{
 		"vazio":               {},
 		"nome em branco":      {Name: ptr("   ")},
+		"nome com U+FFFD":     {Name: ptr("Jo\uFFFDo")},
 		"papel inexistente":   {Role: ptr(identity.Role("admin"))},
 		"palavra-passe curta": {Password: ptr("curta")},
 	} {

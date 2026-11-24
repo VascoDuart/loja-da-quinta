@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -101,6 +102,18 @@ func ValidateCategoryName(name string) error {
 	if name == "" || utf8.RuneCountInString(name) > 60 {
 		return &ValidationError{Field: "name", Message: "O nome da categoria tem de ter entre 1 e 60 caracteres."}
 	}
+	return validateText("name", name)
+}
+
+// validateText recusa texto com caracteres de controlo ou com o carácter de
+// substituição (U+FFFD), que aparece quando um cliente envia texto que não é
+// UTF-8: "Hortícolas" ficaria "Hort�colas" para sempre.
+func validateText(field, s string) error {
+	for _, r := range s {
+		if r == utf8.RuneError || unicode.IsControl(r) {
+			return &ValidationError{Field: field, Message: "O texto tem caracteres inválidos. Escreve-o de novo."}
+		}
+	}
 	return nil
 }
 
@@ -108,6 +121,9 @@ func ValidateCategoryName(name string) error {
 func (in ProductInput) Validate() error {
 	if in.Name == "" || utf8.RuneCountInString(in.Name) > 100 {
 		return &ValidationError{Field: "name", Message: "O nome do produto tem de ter entre 1 e 100 caracteres."}
+	}
+	if err := validateText("name", in.Name); err != nil {
+		return err
 	}
 	if !in.Unit.Valid() {
 		return &ValidationError{Field: "unit", Message: "A unidade tem de ser kg, litro, unidade, molho ou dúzia."}

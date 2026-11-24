@@ -36,6 +36,8 @@ func TestProductValidation(t *testing.T) {
 		"limiar negativo":             func(p *ProductInput) { p.LowStockMilli = -1 },
 		"meia dúzia como limiar":      func(p *ProductInput) { p.Unit = UnitDozen; p.LowStockMilli = 500 },
 		"unidades com casas decimais": func(p *ProductInput) { p.Unit = UnitUnit; p.LowStockMilli = 1500 },
+		"texto que não era UTF-8":     func(p *ProductInput) { p.Name = "Hort\uFFFDcolas" },
+		"carácter de controlo":        func(p *ProductInput) { p.Name = "Alface\x00" },
 	}
 	for name, mutate := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -157,5 +159,17 @@ func TestPublicImageNeedsCurrentVersion(t *testing.T) {
 		if _, _, err := svc.PublicImage(ctx, uuid.New(), "thumb", v); !errors.Is(err, ErrNotFound) {
 			t.Errorf("%s: queria ErrNotFound, deu %v", name, err)
 		}
+	}
+}
+
+func TestCategoryNameRejectsBrokenText(t *testing.T) {
+	for _, name := range []string{"Hort\uFFFDcolas", "Fruta\x07"} {
+		var ve *ValidationError
+		if err := ValidateCategoryName(NormalizeName(name)); !errors.As(err, &ve) {
+			t.Errorf("%q devia ser recusado: %v", name, err)
+		}
+	}
+	if err := ValidateCategoryName("Hortícolas"); err != nil {
+		t.Errorf("acentos verdadeiros são aceites: %v", err)
 	}
 }

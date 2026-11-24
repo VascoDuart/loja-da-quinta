@@ -5,6 +5,7 @@ package users
 import (
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -98,6 +99,12 @@ func (u Update) EndsSessions(before User) bool {
 func validateName(name string) error {
 	if name = strings.TrimSpace(name); name == "" || utf8.RuneCountInString(name) > 100 {
 		return &ValidationError{Field: "name", Message: "O nome tem de ter entre 1 e 100 caracteres."}
+	}
+	// Caracteres de controlo ou U+FFFD (texto que não chegou em UTF-8).
+	for _, r := range name {
+		if r == utf8.RuneError || unicode.IsControl(r) {
+			return &ValidationError{Field: "name", Message: "O nome tem caracteres inválidos. Escreve-o de novo."}
+		}
 	}
 	return nil
 }
