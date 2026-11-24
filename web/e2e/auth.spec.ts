@@ -31,7 +31,8 @@ test('a sessão sobrevive a recarregar a página (refresh pelo cookie)', async (
 
 test('o access token nunca fica no localStorage nem num cookie legível', async ({ page }) => {
   await login(page, 'gestor')
-  const stored = await page.evaluate(() => JSON.stringify(window.localStorage) + document.cookie)
+  // Corre no browser; em string porque o código E2E não tem os tipos do DOM.
+  const stored = await page.evaluate<string>('JSON.stringify(localStorage) + document.cookie')
   expect(stored).not.toMatch(/eyJ/) // início de qualquer JWT
   expect(stored).not.toContain('refresh_token')
 })
