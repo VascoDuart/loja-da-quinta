@@ -130,4 +130,27 @@ describe('sessão', () => {
     await signOut()
     expect(getSession().status).toBe('anonymous')
   })
+
+  it('um login durante uma renovação lenta não é desfeito por ela', async () => {
+    // Abrir a app com a API a acordar: a renovação inicial demora e acaba em
+    // 401. A pessoa entra entretanto. A sessão nova tem de ficar.
+    const order: string[] = []
+    server.use(
+      http.post('*/api/v1/auth/refresh', async () => {
+        order.push('refresh:início')
+        await new Promise((r) => setTimeout(r, 50))
+        order.push('refresh:fim')
+        return problem(401, 'A sessão terminou.')
+      }),
+      http.post('*/api/v1/auth/login', () => {
+        order.push('login')
+        return HttpResponse.json(sessionBody('gestor', 'novo'))
+      }),
+    )
+    const restoring = restore()
+    await signIn('maria@quinta.pt', 'x')
+    await restoring
+    expect(order).toEqual(['refresh:início', 'refresh:fim', 'login'])
+    expect(getSession()).toMatchObject({ status: 'authenticated', user: { role: 'gestor' } })
+  })
 })

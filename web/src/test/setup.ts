@@ -19,8 +19,8 @@ window.matchMedia ??= vi.fn().mockImplementation((query: string) => ({
 
 // As páginas do backoffice carregam o código à parte (lazy), recuperam a
 // sessão e só depois pedem os dados: 1 s por omissão é pouco com os testes
-// em paralelo.
-configure({ asyncUtilTimeout: 3000 })
+// em paralelo, sobretudo na primeira execução (transformação a frio, como no CI).
+configure({ asyncUtilTimeout: 5000 })
 
 // Pedidos sem resposta definida falham o teste: nada vai à rede real.
 beforeAll(() => server.listen({ onUnhandledFrame: 'error' }))
