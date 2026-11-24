@@ -32,7 +32,7 @@ func newTestServer(t *testing.T, dbErr error) *httptest.Server {
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := httpserver.NewHandler(cfg, log, &httpapi.Server{Handler: health.NewHandler(fakeDB{dbErr}, log, "test")})
+	h, err := httpserver.NewHandler(cfg, log, &httpapi.Server{Handler: health.NewHandler(fakeDB{dbErr}, log, "test")}, httpserver.Security{})
 	if err != nil {
 		t.Fatal(err)
 	}

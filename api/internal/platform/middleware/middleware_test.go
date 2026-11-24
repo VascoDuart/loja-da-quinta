@@ -10,8 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/time/rate"
-
+	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/httpx"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/logging"
 )
 
@@ -135,7 +134,7 @@ func TestClientIP(t *testing.T) {
 }
 
 func TestRateLimit(t *testing.T) {
-	h := RateLimit(1, 2, 0)(ok)
+	h := ClientIPContext(0)(RateLimit(1, 2)(ok))
 	codes := make([]int, 0, 3)
 	for range 3 {
 		w := httptest.NewRecorder()
@@ -155,14 +154,16 @@ func TestRateLimit(t *testing.T) {
 	}
 }
 
-func TestRateLimiterForgetsIdleClients(t *testing.T) {
-	now := time.Now()
-	l := &ipLimiter{rps: rate.Limit(1), burst: 1, clients: map[string]*client{}, now: func() time.Time { return now }}
-	l.allow("1.1.1.1")
-	now = now.Add(idleTTL + 2*time.Minute)
-	l.allow("2.2.2.2")
-	if _, ok := l.clients["1.1.1.1"]; ok {
-		t.Error("o IP inativo devia ter sido esquecido")
+func TestClientIPContext(t *testing.T) {
+	var got string
+	h := ClientIPContext(1)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = httpx.ClientIP(r.Context())
+	}))
+	r := httptest.NewRequest("GET", "/", nil)
+	r.Header.Set("X-Forwarded-For", "203.0.113.9")
+	h.ServeHTTP(httptest.NewRecorder(), r)
+	if got != "203.0.113.9" {
+		t.Errorf("IP no contexto = %q", got)
 	}
 }
 

@@ -4,7 +4,19 @@ import (
 	"net"
 	"net/http"
 	"strings"
+
+	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/httpx"
 )
+
+// ClientIPContext descobre o IP do cliente uma vez e guarda-o no contexto,
+// para o rate limit e o login usarem sempre o mesmo valor.
+func ClientIPContext(trustedHops int) Middleware {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r.WithContext(httpx.WithClientIP(r.Context(), ClientIP(r, trustedHops))))
+		})
+	}
+}
 
 // ClientIP descobre o IP do cliente.
 //
