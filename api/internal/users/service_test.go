@@ -42,6 +42,43 @@ func (m *memRepo) Create(_ context.Context, n NewRecord) (User, error) {
 	return u, nil
 }
 
+func (m *memRepo) List(context.Context) ([]User, error) {
+	out := make([]User, 0, len(m.byEmail))
+	for _, u := range m.byEmail {
+		out = append(out, u)
+	}
+	return out, nil
+}
+
+func (m *memRepo) Update(ctx context.Context, id uuid.UUID, c Changes) (User, error) {
+	u, err := m.FindByID(ctx, id)
+	if err != nil {
+		return User{}, err
+	}
+	if c.Name != nil {
+		u.Name = *c.Name
+	}
+	if c.Role != nil {
+		u.Role = *c.Role
+	}
+	if c.Active != nil {
+		u.Active = *c.Active
+	}
+	if c.PasswordHash != nil {
+		u.PasswordHash = *c.PasswordHash
+	}
+	m.byEmail[u.Email] = u
+	return u, nil
+}
+
+// revoker regista para que utilizadores se terminaram as sessões.
+type revoker struct{ revoked []uuid.UUID }
+
+func (r *revoker) RevokeAllForUser(_ context.Context, id uuid.UUID) error {
+	r.revoked = append(r.revoked, id)
+	return nil
+}
+
 // countingHasher conta as verificações, para provar que um e-mail
 // desconhecido também calcula um hash.
 type countingHasher struct {
@@ -58,7 +95,7 @@ func newService(t *testing.T) (*Service, *memRepo, *countingHasher) {
 	t.Helper()
 	repo := newMemRepo()
 	h := &countingHasher{Hasher: password.New(password.Params{Memory: 64, Time: 1, Threads: 1, SaltLen: 16, KeyLen: 32}, 2)}
-	svc, err := NewService(context.Background(), repo, h)
+	svc, err := NewService(context.Background(), repo, h, &revoker{})
 	if err != nil {
 		t.Fatal(err)
 	}

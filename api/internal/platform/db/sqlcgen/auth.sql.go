@@ -99,3 +99,18 @@ func (q *Queries) RevokeRefreshToken(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, revokeRefreshToken, id)
 	return err
 }
+
+const revokeUserRefreshTokens = `-- name: RevokeUserRefreshTokens :execrows
+UPDATE refresh_tokens SET revoked_at = now()
+WHERE user_id = $1 AND revoked_at IS NULL
+`
+
+// Desativar um utilizador, mudar-lhe o papel ou a palavra-passe termina
+// todas as sessões dele.
+func (q *Queries) RevokeUserRefreshTokens(ctx context.Context, userID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeUserRefreshTokens, userID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}

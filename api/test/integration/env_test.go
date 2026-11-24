@@ -43,11 +43,13 @@ func newEnv(t *testing.T) *env {
 		t.Fatal(err)
 	}
 
+	// Todos os pedidos dos testes vêm de 127.0.0.1, seguidos: o limite
+	// global por IP (testado nos unitários do middleware) subiria logo. Os
+	// limites do login, por conta e por IP, ficam os reais.
+	vars := map[string]string{"DATABASE_URL": url, "RATE_LIMIT_RPS": "1000", "RATE_LIMIT_BURST": "1000"}
 	cfg, err := config.FromLookup(func(k string) (string, bool) {
-		if k == "DATABASE_URL" {
-			return url, true
-		}
-		return "", false
+		v, ok := vars[k]
+		return v, ok
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -76,7 +78,7 @@ func (e *env) server(t *testing.T) *httptest.Server {
 // createUser cria um utilizador com o serviço real (argon2id incluído).
 func (e *env) createUser(t *testing.T, email string, role identity.Role, pw string) users.User {
 	t.Helper()
-	svc, err := users.NewService(context.Background(), users.NewPostgresRepo(e.pool), password.New(password.OWASP, 2))
+	svc, err := users.NewService(context.Background(), users.NewPostgresRepo(e.pool), password.New(password.OWASP, 2), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

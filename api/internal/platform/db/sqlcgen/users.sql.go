@@ -14,7 +14,7 @@ import (
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, name, password_hash, role)
 VALUES ($1, $2, $3, $4)
-RETURNING id, email, name, password_hash, role, active
+RETURNING id, email, name, password_hash, role, active, created_at, updated_at
 `
 
 type CreateUserParams struct {
@@ -24,23 +24,14 @@ type CreateUserParams struct {
 	Role         string
 }
 
-type CreateUserRow struct {
-	ID           uuid.UUID
-	Email        string
-	Name         string
-	PasswordHash string
-	Role         string
-	Active       bool
-}
-
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
 	row := q.db.QueryRow(ctx, createUser,
 		arg.Email,
 		arg.Name,
 		arg.PasswordHash,
 		arg.Role,
 	)
-	var i CreateUserRow
+	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
@@ -48,30 +39,23 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 		&i.PasswordHash,
 		&i.Role,
 		&i.Active,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
 
-SELECT id, email, name, password_hash, role, active
+SELECT id, email, name, password_hash, role, active, created_at, updated_at
 FROM users
 WHERE email = $1
 `
 
-type GetUserByEmailRow struct {
-	ID           uuid.UUID
-	Email        string
-	Name         string
-	PasswordHash string
-	Role         string
-	Active       bool
-}
-
 // Queries do módulo users. Só este módulo lê ou escreve a tabela users.
-func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEmailRow, error) {
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByEmail, email)
-	var i GetUserByEmailRow
+	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
@@ -79,28 +63,21 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (GetUserByEm
 		&i.PasswordHash,
 		&i.Role,
 		&i.Active,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, name, password_hash, role, active
+SELECT id, email, name, password_hash, role, active, created_at, updated_at
 FROM users
 WHERE id = $1
 `
 
-type GetUserByIDRow struct {
-	ID           uuid.UUID
-	Email        string
-	Name         string
-	PasswordHash string
-	Role         string
-	Active       bool
-}
-
-func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow, error) {
+func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	row := q.db.QueryRow(ctx, getUserByID, id)
-	var i GetUserByIDRow
+	var i User
 	err := row.Scan(
 		&i.ID,
 		&i.Email,
@@ -108,6 +85,84 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (GetUserByIDRow
 		&i.PasswordHash,
 		&i.Role,
 		&i.Active,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const listUsers = `-- name: ListUsers :many
+SELECT id, email, name, password_hash, role, active, created_at, updated_at
+FROM users
+ORDER BY active DESC, lower(name), email
+`
+
+func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
+	rows, err := q.db.Query(ctx, listUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []User{}
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Name,
+			&i.PasswordHash,
+			&i.Role,
+			&i.Active,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateUser = `-- name: UpdateUser :one
+UPDATE users SET
+  name          = COALESCE($1, name),
+  role          = COALESCE($2, role),
+  active        = COALESCE($3, active),
+  password_hash = COALESCE($4, password_hash)
+WHERE id = $5
+RETURNING id, email, name, password_hash, role, active, created_at, updated_at
+`
+
+type UpdateUserParams struct {
+	Name         *string
+	Role         *string
+	Active       *bool
+	PasswordHash *string
+	ID           uuid.UUID
+}
+
+// Os campos a NULL ficam como estão.
+func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, updateUser,
+		arg.Name,
+		arg.Role,
+		arg.Active,
+		arg.PasswordHash,
+		arg.ID,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.PasswordHash,
+		&i.Role,
+		&i.Active,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }

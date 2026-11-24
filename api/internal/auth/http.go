@@ -10,9 +10,9 @@ import (
 	"github.com/getkin/kin-openapi/openapi3filter"
 
 	"github.com/VascoDuart/loja-da-quinta/api/internal/httpapi/gen"
+	"github.com/VascoDuart/loja-da-quinta/api/internal/httpapi/problems"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/httpx"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/identity"
-	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/logging"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/users"
 )
 
@@ -33,9 +33,9 @@ func (h *Endpoints) Login(ctx context.Context, req gen.LoginRequestObject) (gen.
 	sess, err := h.svc.Login(ctx, req.Body.Email, req.Body.Password, httpx.ClientIP(ctx))
 	switch {
 	case errors.Is(err, ErrInvalidCredentials):
-		return gen.Login401ApplicationProblemPlusJSONResponse(problem(ctx, http.StatusUnauthorized, "E-mail ou palavra-passe incorretos.")), nil
+		return gen.Login401ApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusUnauthorized, "E-mail ou palavra-passe incorretos.")), nil
 	case errors.Is(err, ErrTooManyAttempts):
-		return gen.Login429ApplicationProblemPlusJSONResponse(problem(ctx, http.StatusTooManyRequests,
+		return gen.Login429ApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusTooManyRequests,
 			"Demasiadas tentativas falhadas. Espera 15 minutos e tenta de novo.")), nil
 	case err != nil:
 		return nil, err
@@ -48,7 +48,7 @@ func (h *Endpoints) RefreshSession(ctx context.Context, req gen.RefreshSessionRe
 	if errors.Is(err, ErrSessionInvalid) || errors.Is(err, ErrRefreshReused) {
 		return gen.RefreshSession401ApplicationProblemPlusJSONResponse{
 			SessionEndedApplicationProblemPlusJSONResponse: gen.SessionEndedApplicationProblemPlusJSONResponse{
-				Body:    problem(ctx, http.StatusUnauthorized, "A sessão terminou. Inicia sessão de novo."),
+				Body:    problems.New(ctx, http.StatusUnauthorized, "A sessão terminou. Inicia sessão de novo."),
 				Headers: gen.SessionEndedResponseHeaders{SetCookie: clearCookie()},
 			},
 		}, nil
@@ -69,11 +69,11 @@ func (h *Endpoints) Logout(ctx context.Context, req gen.LogoutRequestObject) (ge
 func (h *Endpoints) GetMe(ctx context.Context, _ gen.GetMeRequestObject) (gen.GetMeResponseObject, error) {
 	p, ok := identity.From(ctx)
 	if !ok {
-		return gen.GetMe401ApplicationProblemPlusJSONResponse{ProblemApplicationProblemPlusJSONResponse: gen.ProblemApplicationProblemPlusJSONResponse(problem(ctx, http.StatusUnauthorized, "É preciso iniciar sessão."))}, nil
+		return gen.GetMe401ApplicationProblemPlusJSONResponse{ProblemApplicationProblemPlusJSONResponse: gen.ProblemApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusUnauthorized, "É preciso iniciar sessão."))}, nil
 	}
 	u, err := h.svc.Me(ctx, p)
 	if errors.Is(err, identity.ErrUnauthenticated) {
-		return gen.GetMe401ApplicationProblemPlusJSONResponse{ProblemApplicationProblemPlusJSONResponse: gen.ProblemApplicationProblemPlusJSONResponse(problem(ctx, http.StatusUnauthorized, "É preciso iniciar sessão."))}, nil
+		return gen.GetMe401ApplicationProblemPlusJSONResponse{ProblemApplicationProblemPlusJSONResponse: gen.ProblemApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusUnauthorized, "É preciso iniciar sessão."))}, nil
 	}
 	if err != nil {
 		return nil, err
@@ -159,14 +159,6 @@ func refreshCookie(value string) string {
 func clearCookie() string {
 	c := http.Cookie{Name: cookieName, Value: "", Path: cookiePath, MaxAge: -1, HttpOnly: true, Secure: true, SameSite: http.SameSiteStrictMode}
 	return c.String()
-}
-
-func problem(ctx context.Context, status int, detail string) gen.Problem {
-	p := gen.Problem{Type: "about:blank", Title: http.StatusText(status), Status: status, Detail: &detail}
-	if id := logging.RequestID(ctx); id != "" {
-		p.Instance = &id
-	}
-	return p
 }
 
 func deref(s *string) string {

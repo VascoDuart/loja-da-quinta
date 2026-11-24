@@ -237,16 +237,23 @@ func TestAuthorizationMatrix(t *testing.T) {
 	e.createUser(t, "funcionario@quinta.pt", identity.RoleFuncionario, pw)
 	srv := e.server(t)
 
+	target := e.createUser(t, "alvo@quinta.pt", identity.RoleFuncionario, pw)
+
 	gestor, _ := login(t, srv, "gestor@quinta.pt")
 	funcionario, _ := login(t, srv, "funcionario@quinta.pt")
 	tokens := map[string]string{"visitante": "", "funcionario": funcionario, "gestor": gestor}
 
+	newUser := map[string]string{"email": "novo@quinta.pt", "name": "Novo", "role": "funcionario", "password": pw}
 	rows := []struct {
 		method, path string
+		body         any
 		want         map[string]int
 	}{
-		{"GET", "/healthz", map[string]int{"visitante": 200, "funcionario": 200, "gestor": 200}},
-		{"GET", "/me", map[string]int{"visitante": 401, "funcionario": 200, "gestor": 200}},
+		{"GET", "/healthz", nil, map[string]int{"visitante": 200, "funcionario": 200, "gestor": 200}},
+		{"GET", "/me", nil, map[string]int{"visitante": 401, "funcionario": 200, "gestor": 200}},
+		{"GET", "/users", nil, map[string]int{"visitante": 401, "funcionario": 403, "gestor": 200}},
+		{"POST", "/users", newUser, map[string]int{"visitante": 401, "funcionario": 403, "gestor": 201}},
+		{"PATCH", "/users/" + target.ID.String(), map[string]string{"name": "Alvo"}, map[string]int{"visitante": 401, "funcionario": 403, "gestor": 200}},
 	}
 	for _, row := range rows {
 		for who, token := range tokens {
@@ -255,7 +262,7 @@ func TestAuthorizationMatrix(t *testing.T) {
 				if token != "" {
 					h = bearer(token)
 				}
-				r := call(t, srv, row.method, row.path, nil, h)
+				r := call(t, srv, row.method, row.path, row.body, h)
 				if r.status != row.want[who] {
 					t.Errorf("queria %d, deu %d %v", row.want[who], r.status, r.body)
 				}

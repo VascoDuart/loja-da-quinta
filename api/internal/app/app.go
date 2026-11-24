@@ -29,16 +29,20 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, pool *pgxpool
 	if err != nil {
 		return nil, err
 	}
-	userSvc, err := users.NewService(ctx, users.NewPostgresRepo(pool), password.New(password.OWASP, maxConcurrentHashes))
+	// O users usa o store das sessões para as terminar (desativar, mudar o
+	// papel); o auth usa o users para verificar credenciais.
+	sessions := auth.NewPostgresStore(pool)
+	userSvc, err := users.NewService(ctx, users.NewPostgresRepo(pool), password.New(password.OWASP, maxConcurrentHashes), sessions)
 	if err != nil {
 		return nil, err
 	}
-	authSvc := auth.NewService(userSvc, auth.NewPostgresStore(pool), tokens, log)
+	authSvc := auth.NewService(userSvc, sessions, tokens, log)
 
-	api := &httpapi.Server{
-		Handler:   health.NewHandler(pool, log, cfg.Version),
-		Endpoints: auth.NewEndpoints(authSvc),
-	}
+	api := httpapi.New(
+		health.NewHandler(pool, log, cfg.Version),
+		auth.NewEndpoints(authSvc),
+		users.NewEndpoints(userSvc),
+	)
 	return httpserver.NewHandler(cfg, log, api, httpserver.Security{
 		Authenticate: authSvc.Authenticate,
 		Authorize:    auth.Authorize,
