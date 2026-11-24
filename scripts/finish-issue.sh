@@ -18,6 +18,8 @@ set -euo pipefail
 REPO_OWNER="VascoDuart"
 PROJECT_TITLE="Loja da Quinta"
 WORKFLOW="deploy-staging.yml"
+# Os checks que a proteção da dev e da main exige (ver CONTRIBUTING.md).
+REQUIRED_CHECKS="ci-ok security-ok"
 
 pr="" issue=""
 while [ $# -gt 0 ]; do
@@ -35,11 +37,30 @@ cd "$(git rev-parse --show-toplevel)"
 
 # --- 1 e 2: checks e merge -------------------------------------------------
 if [ -n "$pr" ]; then
-  step "PR #$pr: à espera dos checks obrigatórios"
-  # --required: só os checks que a proteção do branch exige.
-  gh pr checks "$pr" --required --watch --interval 20 > /dev/null || {
-    gh pr checks "$pr" --required; echo "Há checks a falhar: não faço merge." >&2; exit 1; }
-  gh pr checks "$pr" --required | awk '{print "   " $1, $2}'
+  step "PR #$pr: à espera dos checks obrigatórios ($REQUIRED_CHECKS)"
+  # Espera-se por nome: um check que ainda não começou não aparece na lista,
+  # e "nenhum pendente" não quer dizer "todos passaram".
+  for _ in $(seq 1 120); do  # até 40 minutos
+    states=$(gh pr checks "$pr" --json name,bucket -q '.[] | "\(.name)=\(.bucket)"' 2>/dev/null || true)
+    missing=0 failed=""
+    for check in $REQUIRED_CHECKS; do
+      bucket=$(grep -E "^$check=" <<<"$states" | head -1 | cut -d= -f2)
+      case "$bucket" in
+        pass) ;;
+        fail|cancel) failed="$failed $check" ;;
+        *) missing=1 ;;
+      esac
+    done
+    if [ -n "$failed" ]; then
+      echo "Checks a falhar:$failed. Não faço merge." >&2
+      gh pr checks "$pr" >&2 || true
+      exit 1
+    fi
+    [ "$missing" = 0 ] && break
+    sleep 20
+  done
+  [ "$missing" = 0 ] || { echo "Os checks não terminaram a tempo." >&2; exit 1; }
+  for check in $REQUIRED_CHECKS; do echo "   $check: pass"; done
 
   title=$(gh pr view "$pr" --json title -q .title)
   body=""
