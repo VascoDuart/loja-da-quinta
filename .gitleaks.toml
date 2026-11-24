@@ -8,9 +8,10 @@ useDefault = true
 # O oapi-codegen embebe a OpenAPI comprimida e em base64 em openapi.gen.go
 # (swaggerSpec). Qualquer mudança no contrato muda esse texto, e uma linha de
 # base64 com muita entropia pode calhar na regra generic-api-key (falso
-# positivo, visto no PR #37). A exceção é só para esta regra e este ficheiro
-# gerado; todas as outras regras continuam a aplicar-se a ele.
-[[allowlists]]
+# positivo, visto no PR #37). A exceção é só para este ficheiro gerado, que
+# ninguém escreve à mão; todos os outros ficheiros continuam a ser analisados.
+# Sintaxe `[allowlist]` (e não `[[allowlists]]`) porque o gitleaks-action usa
+# o gitleaks 8.24, que ainda não conhece `targetRules`.
+[allowlist]
 description = "Spec OpenAPI embebida (base64) no código gerado"
-targetRules = ["generic-api-key"]
 paths = ['''api/internal/httpapi/gen/openapi\.gen\.go''']
