@@ -44,7 +44,8 @@ if [ -n "$pr" ]; then
     states=$(gh pr checks "$pr" --json name,bucket -q '.[] | "\(.name)=\(.bucket)"' 2>/dev/null || true)
     missing=0 failed=""
     for check in $REQUIRED_CHECKS; do
-      bucket=$(grep -E "^$check=" <<<"$states" | head -1 | cut -d= -f2)
+      # || true: um check que ainda não existe não pode terminar o script (pipefail).
+      bucket=$( (grep -E "^$check=" <<<"$states" || true) | head -1 | cut -d= -f2)
       case "$bucket" in
         pass) ;;
         fail|cancel) failed="$failed $check" ;;
