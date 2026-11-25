@@ -54,6 +54,27 @@ type RefreshToken struct {
 	CreatedAt time.Time
 }
 
+type StockLot struct {
+	ID          uuid.UUID
+	ProductID   uuid.UUID
+	QtyReceived pgtype.Numeric
+	QtyLeft     pgtype.Numeric
+	HarvestedOn time.Time
+	ExpiresOn   time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+}
+
+type StockMovement struct {
+	ID        int64
+	LotID     uuid.UUID
+	Type      string
+	Quantity  pgtype.Numeric
+	UserID    uuid.UUID
+	Reason    *string
+	CreatedAt time.Time
+}
+
 type User struct {
 	ID           uuid.UUID
 	Email        string

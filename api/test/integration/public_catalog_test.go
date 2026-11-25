@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"slices"
@@ -13,8 +14,8 @@ import (
 )
 
 // TestPublicCatalog prova o catálogo público de ponta a ponta (#11): sem
-// sessão, só produtos ativos e públicos, só os campos permitidos, e com
-// 60 s de cache.
+// sessão, só produtos ativos e públicos, só os campos permitidos, com 60 s
+// de cache e a disponibilidade calculada a partir do stock real (#12).
 func TestPublicCatalog(t *testing.T) {
 	e := newEnv(t)
 	e.createUser(t, "gestor@quinta.pt", identity.RoleGestor, pw)
@@ -37,11 +38,34 @@ func TestPublicCatalog(t *testing.T) {
 		}
 		return r.body["id"].(string)
 	}
-	create(horta, "Tomate", nil)
+	tomate := create(horta, "Tomate", nil)
 	laranja := create(fruta, "Laranja", nil)
 	create(fruta, "Banana", func(in map[string]any) { in["active"] = false })
 	create(fruta, "Marmelo", func(in map[string]any) { in["isPublic"] = false })
-	create(fruta, "Abacate", func(in map[string]any) { in["seasonMonths"] = []int{} })
+	abacate := create(fruta, "Abacate", func(in map[string]any) { in["seasonMonths"] = []int{} })
+
+	// Stock (o limiar de stock baixo é 2,5 kg): a laranja tem 10 kg em dois
+	// lotes; o tomate tem 1 kg num lote que expira hoje (ainda conta).
+	for _, l := range []map[string]any{
+		lot(laranja, 6000, lisbonDay(-1), lisbonDay(5)),
+		lot(laranja, 4000, lisbonDay(0), lisbonDay(9)),
+		lot(tomate, 1000, lisbonDay(0), lisbonDay(0)),
+	} {
+		if r := call(t, srv, "POST", "/stock/lots", l, gestor); r.status != http.StatusCreated {
+			t.Fatalf("registar stock: %d %v", r.status, r.body)
+		}
+	}
+	// O abacate só tem um lote fora de validade e um lote vazio: não contam.
+	// A API nunca aceita um lote já fora de validade, por isso vão direto à
+	// base de dados.
+	for _, stmt := range []string{
+		"INSERT INTO stock_lots (product_id, qty_received, qty_left, harvested_on, expires_on) VALUES ($1, 50, 50, $2::date - 10, $2::date - 1)",
+		"INSERT INTO stock_lots (product_id, qty_received, qty_left, harvested_on, expires_on) VALUES ($1, 50, 0, $2::date, $2::date + 30)",
+	} {
+		if _, err := e.pool.Exec(context.Background(), stmt, abacate, lisbonDay(0)); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	// Imagem na laranja: a versão tem de aparecer no catálogo.
 	if status, _, _ := raw(t, srv, "PUT", "/products/"+laranja+"/image", photo(t, 600, 400), gestor); status != http.StatusOK {
@@ -113,10 +137,10 @@ func TestPublicCatalog(t *testing.T) {
 		if _, ok := byName["Tomate"]["image"]; ok {
 			t.Errorf("um produto sem imagem não devia ter o campo image")
 		}
-		// Sem stock por lotes (#12), tudo aparece disponível.
-		for name, it := range byName {
-			if it["availability"] != "disponivel" {
-				t.Errorf("%s: disponibilidade %v", name, it["availability"])
+		// Disponibilidade a partir dos lotes dentro da validade.
+		for name, want := range map[string]string{"Laranja": "disponivel", "Tomate": "pouco", "Abacate": "esgotado"} {
+			if got := byName[name]["availability"]; got != want {
+				t.Errorf("%s: disponibilidade %v, queria %s", name, got, want)
 			}
 		}
 		if got := byName["Abacate"]["seasonMonths"].([]any); len(got) != 0 {

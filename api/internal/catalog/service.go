@@ -23,11 +23,11 @@ type Service struct {
 
 // NewService cria o serviço.
 func NewService(repo Repo, images ImageStore) *Service {
-	return &Service{repo: repo, images: images, imageSlots: make(chan struct{}, 1), stock: UntrackedStock{}}
+	return &Service{repo: repo, images: images, imageSlots: make(chan struct{}, 1), stock: noStock{}}
 }
 
-// WithStock liga o stock real ao catálogo público (#12). Sem isto, todos os
-// produtos aparecem como disponíveis.
+// WithStock liga o stock real ao catálogo público (o serviço do módulo
+// inventory). Sem isto, todos os produtos aparecem esgotados.
 func (s *Service) WithStock(stock StockSource) *Service {
 	s.stock = stock
 	return s
@@ -130,14 +130,12 @@ func (s *Service) PublicCatalog(ctx context.Context) ([]PublicProduct, error) {
 	}
 	out := make([]PublicProduct, len(products))
 	for i, p := range products {
-		availability := Available
-		if milli, tracked := stock[p.ID]; tracked {
-			availability = AvailabilityOf(milli, p.LowStockMilli)
-		}
 		out[i] = PublicProduct{
 			ID: p.ID, Name: p.Name, CategoryName: p.CategoryName, Unit: p.Unit,
 			PriceCents: p.PriceCents, SeasonMonths: p.SeasonMonths,
-			ImageVersion: p.ImageVersion, Availability: availability,
+			ImageVersion: p.ImageVersion,
+			// Sem entrada no mapa: sem stock, esgotado.
+			Availability: AvailabilityOf(stock[p.ID], p.LowStockMilli),
 		}
 	}
 	return out, nil

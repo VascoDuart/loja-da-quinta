@@ -55,8 +55,9 @@ func publicProduct(name string, low int64) Product {
 	}
 }
 
-// Hoje não há stock por lotes (#12): todos aparecem disponíveis.
-func TestPublicCatalogWithoutStockIsAvailable(t *testing.T) {
+// Sem o stock ligado (WithStock), nenhum produto tem stock: todos aparecem
+// esgotados, nunca disponíveis por engano.
+func TestPublicCatalogWithoutStockIsSoldOut(t *testing.T) {
 	repo := &publicRepo{products: []Product{publicProduct("Maçã", 5000), publicProduct("Pera", 0)}}
 	list, err := NewService(repo, &fakeImages{}).PublicCatalog(context.Background())
 	if err != nil {
@@ -66,22 +67,23 @@ func TestPublicCatalogWithoutStockIsAvailable(t *testing.T) {
 		t.Fatalf("queria 2 produtos, deu %d", len(list))
 	}
 	for _, p := range list {
-		if p.Availability != Available {
-			t.Errorf("%s: queria disponivel, deu %q", p.Name, p.Availability)
+		if p.Availability != SoldOut {
+			t.Errorf("%s: queria esgotado, deu %q", p.Name, p.Availability)
 		}
 	}
 }
 
-// A porta do #12: o stock real decide esgotado, pouco e disponível.
+// O stock real decide esgotado, pouco e disponível; um produto que não vem
+// no mapa não tem stock.
 func TestPublicCatalogUsesTheStockSource(t *testing.T) {
-	soldOut, low, fine, untracked := publicProduct("A", 2000), publicProduct("B", 2000), publicProduct("C", 2000), publicProduct("D", 2000)
-	repo := &publicRepo{products: []Product{soldOut, low, fine, untracked}}
+	soldOut, low, fine, missing := publicProduct("A", 2000), publicProduct("B", 2000), publicProduct("C", 2000), publicProduct("D", 2000)
+	repo := &publicRepo{products: []Product{soldOut, low, fine, missing}}
 	stock := &fakeStock{levels: map[uuid.UUID]int64{soldOut.ID: 0, low.ID: 1999, fine.ID: 2000}}
 	list, err := NewService(repo, &fakeImages{}).WithStock(stock).PublicCatalog(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []Availability{SoldOut, Low, Available, Available}
+	want := []Availability{SoldOut, Low, Available, SoldOut}
 	for i, p := range list {
 		if p.Availability != want[i] {
 			t.Errorf("%s: queria %q, deu %q", p.Name, want[i], p.Availability)
