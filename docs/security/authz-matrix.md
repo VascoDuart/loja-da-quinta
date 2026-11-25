@@ -32,6 +32,8 @@ O valor por omissão da spec é `bearerAuth: []`, que não deixa ninguém entrar
 
 Regras de `/users` além do papel: não há `DELETE` (um utilizador fica no histórico e só se desativa), e o gestor não pode desativar nem despromover a própria conta (`409`), para haver sempre um gestor ativo. O serviço `users` volta a verificar o papel, mesmo depois do RBAC da API.
 
-`GET /public/catalog` é público e igual para toda a gente: só devolve produtos ativos e visíveis no catálogo (`isPublic`), com os campos do DTO `CatalogItem` (nome, categoria, unidade, preço por unidade, época, imagem e disponibilidade). Nunca devolve quantidades, IVA, limiar de stock, estado "ativo" nem datas, mesmo a um gestor autenticado: o backoffice usa `GET /products`. A resposta tem `Cache-Control: public, max-age=60`.
+`POST /stock/lots` (entrada de stock) é para o funcionário e o gestor. O serviço `inventory` volta a verificar o papel, e o autor do movimento vem sempre da sessão, nunca do pedido (um campo a mais no corpo dá `400`).
+
+`GET /public/catalog` é público e igual para toda a gente: só devolve produtos ativos e visíveis no catálogo (`isPublic`), com os campos do DTO `CatalogItem` (nome, categoria, unidade, preço por unidade, época, imagem e disponibilidade). Nunca devolve quantidades, IVA, limiar de stock, estado "ativo" nem datas, mesmo a um gestor autenticado: o backoffice usa `GET /products`. A disponibilidade vem do stock real (só os lotes dentro da validade): sem stock, o produto aparece esgotado. A resposta tem `Cache-Control: public, max-age=60`.
 
 Todos os caminhos têm o prefixo `/api/v1`.

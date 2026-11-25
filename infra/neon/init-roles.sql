@@ -9,7 +9,7 @@
 --        -v readonly_pw="$READONLY_PW" -1 -f infra/neon/init-roles.sql
 --
 --   migrator  dono do schema "loja"; corre as migrações (DDL)
---   app       usado pela API; só DML (a migração da auditoria restringe audit_log)
+--   app       usado pela API; só DML (as migrações restringem stock_movements e audit_log)
 --   readonly  só leitura; para o DBeaver e diagnóstico
 \set ON_ERROR_STOP on
 

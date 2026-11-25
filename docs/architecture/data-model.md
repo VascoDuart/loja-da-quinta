@@ -75,11 +75,11 @@ erDiagram
     }
     stock_lots {
         uuid id PK
-        uuid product_id FK
-        numeric qty_received "12,3"
+        uuid product_id FK "RESTRICT"
+        numeric qty_received "12,3 CHECK > 0"
         numeric qty_left "12,3 CHECK >= 0"
         date harvested_on
-        date expires_on
+        date expires_on "CHECK >= harvested_on"
         timestamptz created_at
         timestamptz updated_at
     }
@@ -105,17 +105,20 @@ erDiagram
         bigint id PK
         uuid lot_id FK
         text type "entrada | venda | ajuste | quebra | anulacao"
-        numeric quantity "12,3"
-        uuid sale_id FK "null"
+        numeric quantity "12,3 com sinal"
+        uuid sale_id FK "null, chega com as vendas (#15)"
         uuid user_id FK
-        text reason
+        text reason "null"
         timestamptz created_at
     }
 ```
 
 ## Decisões
 
-- **Stock disponível** é a soma de `qty_left` dos lotes. Cada alteração deixa um registo em `stock_movements`, que funciona como histórico completo ([ADR-0010](../adr/0010-stock-por-lotes-fefo.md)).
+- **Stock disponível** é a soma de `qty_left` dos lotes **dentro da validade** (`expires_on` a partir de hoje, na hora de Lisboa; um lote que expira hoje ainda conta). Um lote fora de validade não se pode vender, por isso não conta para o catálogo público nem, mais tarde, para as vendas. Cada alteração deixa um registo em `stock_movements`, que funciona como histórico completo ([ADR-0010](../adr/0010-stock-por-lotes-fefo.md)).
+- **Uma entrada de stock é um lote e um movimento `entrada`, gravados na mesma transação**, com o utilizador que a registou (`POST /stock/lots`). A API recusa (422) quantidades que não são positivas, casas decimais em unidades, molhos e dúzias, produtos inexistentes ou desativados, colheitas no futuro e validades anteriores à colheita ou a hoje.
+- **A quantidade de um movimento tem sinal:** entra no lote (`entrada`, `anulacao`) ou sai dele (`venda`, `quebra`); um `ajuste` pode ir para os dois lados. Um `CHECK` garante o sinal de cada tipo. A coluna `sale_id` chega com a tabela `sales` (#15), já com a chave estrangeira.
+- **Movimentos só de acrescento:** um trigger recusa `UPDATE`, `DELETE` e `TRUNCATE` em `stock_movements` a toda a gente, incluindo o dono das tabelas, e o papel `app` só tem `INSERT` e `SELECT` (a migração tira-lhe o resto). Corrigir um engano é registar outro movimento.
 - **Dinheiro em cêntimos inteiros** e quantidades em `numeric(12,3)` para pesos em kg e volumes em litros ([ADR-0009](../adr/0009-dinheiro-em-centimos.md)).
 - **As linhas da venda guardam o preço e o IVA da altura**, para que mudar um preço não altere vendas antigas.
 - **Datas em UTC** (`timestamptz`); a conversão para Europe/Lisbon é feita na apresentação.
@@ -138,7 +141,7 @@ erDiagram
 - **O `updated_at` diz quando, não quem nem o quê:** para isso existe a auditoria.
 - **Imagens em `product_images`** ([ADR-0014](../adr/0014-imagens-dos-produtos-no-postgresql.md)): duas versões por produto (`thumb` 160 px, `large` 800 px), sempre reprocessadas em JPEG pela API. O `sha256` entra no URL, que é imutável e fica na cache da CDN. Trocar a imagem apaga e volta a inserir as duas linhas na mesma transação; por isso não há `updated_at`. `ON DELETE CASCADE` a partir de `products`.
 - **Nomes únicos sem olhar a maiúsculas:** índices únicos em `lower(name)` nas categorias e nos produtos. "Fruta" e "fruta" seriam a mesma categoria, e dois produtos com o mesmo nome confundiriam a pesquisa no ecrã de venda.
-- **Nada do catálogo se apaga com histórico:** `products.category_id` é `ON DELETE RESTRICT`, e o stock e as vendas vão apontar para os produtos da mesma forma. A API responde `409` e o produto desativa-se.
+- **Nada do catálogo se apaga com histórico:** `products.category_id` e `stock_lots.product_id` são `ON DELETE RESTRICT`, e as vendas vão apontar para os produtos da mesma forma. Apagar um produto com lotes dá `409`; o produto desativa-se. Os lotes também não se apagam: cada um tem pelo menos o movimento de entrada, que aponta para ele com `RESTRICT`.
 - **E-mail guardado em minúsculas** (`CHECK (email = lower(email))`) em vez de `citext`: o papel `migrator` não pode instalar extensões na Neon, e a API normaliza o e-mail antes de o procurar.
 - **Enums como `text` com `CHECK`**, em vez de tipos `ENUM` do PostgreSQL, para facilitar migrações.
 - **Auditoria só de acrescento:** o papel `app` tem apenas `INSERT` e `SELECT` em `audit_log`.
@@ -148,7 +151,7 @@ erDiagram
 | Papel | Permissões | Usado por |
 |---|---|---|
 | `migrator` | DDL no schema da app | Workflow de deploy (goose) |
-| `app` | DML nas tabelas da app; só `INSERT`/`SELECT` em `audit_log` | API |
+| `app` | DML nas tabelas da app; só `INSERT`/`SELECT` em `stock_movements` e `audit_log` | API |
 | `readonly` | `SELECT` | DBeaver e diagnóstico |
 
 Localmente, os papéis são criados por [`infra/postgres/init-roles.sh`](../../infra/postgres/init-roles.sh). As tabelas ficam no schema `loja`, cujo dono é o `migrator`.

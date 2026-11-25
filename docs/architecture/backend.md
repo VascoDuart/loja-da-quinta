@@ -97,6 +97,7 @@ Se o `/healthz` dependesse da base de dados, uma falha na Neon faria a Render re
 
 - Um módulo só importa de outro módulo a **interface do seu serviço**, nunca o repositório nem os tipos internos.
 - `domain.go` não importa `net/http`, `database/sql`, `pgx` nem outro módulo.
+- Quando dois módulos precisam um do outro, cada um declara a porta de que precisa e a composição (`internal/app`) liga-os: o `inventory` pergunta ao serviço do `catalog` pelos produtos (`Products`), e o catálogo público pergunta ao `inventory` quanto stock há (`StockSource`). Nenhum lê as tabelas do outro.
 - Estas regras são verificadas no CI com `depguard` (golangci-lint).
 
 ## Convenções
