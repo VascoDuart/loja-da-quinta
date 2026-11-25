@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  addDays,
   centsToInput,
   formatDate,
   formatDateTime,
@@ -9,6 +10,7 @@ import {
   formatSeason,
   formatUnitPrice,
   lisbonMonth,
+  lisbonToday,
   milliToInput,
   parseEuroToCents,
   parseQuantityToMilli,
@@ -140,5 +142,20 @@ describe('lisbonMonth', () => {
     ['2026-06-30T23:30:00Z', 7],
   ])('%s: mês %i na hora de Lisboa (no verão, UTC+1)', (iso, month) => {
     expect(lisbonMonth(new Date(iso))).toBe(month)
+  })
+})
+
+describe('lisbonToday e addDays', () => {
+  it('usa o dia de Lisboa, com a hora de verão', () => {
+    // 23:30 UTC em julho já é dia 2 em Lisboa (UTC+1); em dezembro ainda não.
+    expect(lisbonToday(new Date('2026-07-01T23:30:00Z'))).toBe('2026-07-02')
+    expect(lisbonToday(new Date('2026-12-31T23:30:00Z'))).toBe('2026-12-31')
+  })
+
+  it('soma dias do calendário, a passar meses, anos e a mudança de hora', () => {
+    expect(addDays('2026-11-25', 7)).toBe('2026-12-02')
+    expect(addDays('2026-12-30', 3)).toBe('2027-01-02')
+    expect(addDays('2026-03-28', 1)).toBe('2026-03-29')
+    expect(addDays('2026-03-01', -1)).toBe('2026-02-28')
   })
 })

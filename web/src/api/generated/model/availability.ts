@@ -9,7 +9,7 @@
  */
 
 /**
- * Estado do stock sem expor a quantidade. esgotado com stock 0; pouco abaixo do limiar de stock baixo do produto.
+ * Estado do stock sem expor a quantidade. esgotado sem stock dentro da validade (os lotes fora de validade não contam); pouco abaixo do limiar de stock baixo do produto.
  */
 export type Availability = typeof Availability[keyof typeof Availability];
 

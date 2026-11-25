@@ -1,0 +1,52 @@
+.stock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  max-width: 40rem;
+}
+
+.stock__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.stock__title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 800;
+}
+
+.stock__lead {
+  margin: 0;
+  color: var(--color-muted);
+}
+
+.stock__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* No tablet, colheita e validade lado a lado; no telemóvel, uma por linha. */
+.stock__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.stock__row > .field {
+  flex: 1 1 12rem;
+}
+
+.stock__registered {
+  margin: 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}

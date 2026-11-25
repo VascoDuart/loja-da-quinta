@@ -122,3 +122,24 @@ export function formatSeason(months: readonly number[]): string {
 export function lisbonMonth(now: Date = new Date()): number {
   return Number(new Intl.DateTimeFormat('en-US', { timeZone: TIME_ZONE, month: 'numeric' }).format(now))
 }
+
+/**
+ * Dia de hoje na hora de Lisboa, como "2026-11-25" (o formato dos campos de
+ * data e da API). Perto da meia-noite, o dia de Lisboa pode não ser o do
+ * computador nem o de UTC.
+ */
+export function lisbonToday(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now)
+}
+
+/** "2026-11-25", 7 → "2026-12-02" (dias do calendário, sem fusos pelo meio). */
+export function addDays(day: string, n: number): string {
+  const d = new Date(`${day}T12:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + n)
+  return d.toISOString().slice(0, 10)
+}
