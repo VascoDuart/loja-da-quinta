@@ -14,7 +14,8 @@ Estado: ⬜ por fazer · 🟡 em curso · ✅ feito · ➖ não aplicável
 | V3 Sessões | Logout invalida a sessão no servidor | `auth` | ✅ |
 | V3 Sessões | Cookies com `Secure`, `HttpOnly` e `SameSite` | `auth` | ✅ |
 | V3 Sessões | Desativar um utilizador termina as suas sessões | `users` + `auth` | ✅ (também ao mudar o papel ou a palavra-passe) |
-| V4 Controlo de acesso | Negado por omissão; verificação no servidor em cada pedido | OpenAPI (`security`) + `auth.Authorize` | ✅ |
+| V4 Controlo de acesso | Negado por omissão; verificação no servidor em cada pedido | OpenAPI (`security`) + `auth.Authorizer` | ✅ |
+| V4 Controlo de acesso | Chamadas entre máquinas autenticadas com credencial própria e privilégio mínimo | `jobToken` (só o job dos alertas; token ≥ 32 caracteres, tempo constante, obrigatório fora do ambiente local) | ✅ |
 | V4 Controlo de acesso | Proteção contra IDOR (verificação de posse/papel no serviço) | serviços | ⬜ |
 | V4 Controlo de acesso | Proteção CSRF nos endpoints com cookie | `auth` (`SameSite=Strict` + `X-CSRF`) | ✅ |
 | V5 Validação | Validação de entrada contra esquema (OpenAPI) | adaptador HTTP | ⬜ |

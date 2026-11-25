@@ -20,7 +20,10 @@ type PostgresStore struct{ pool *pgxpool.Pool }
 // NewPostgresStore cria o store.
 func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore { return &PostgresStore{pool: pool} }
 
-var _ Repo = (*PostgresStore)(nil)
+var (
+	_ Repo      = (*PostgresStore)(nil)
+	_ AlertDays = (*PostgresStore)(nil)
+)
 
 func (s *PostgresStore) CreateLot(ctx context.Context, in NewLot, unit string, userID uuid.UUID) (Lot, error) {
 	var lot Lot
@@ -156,6 +159,33 @@ func toLot(r sqlcgen.LockLotRow) Lot {
 		ID: r.ID, ProductID: r.ProductID, Unit: r.Unit, QtyReceivedMilli: r.QtyReceivedMilli, QtyLeftMilli: r.QtyLeftMilli,
 		HarvestedOn: r.HarvestedOn, ExpiresOn: r.ExpiresOn, CreatedAt: r.CreatedAt,
 	}
+}
+
+func (s *PostgresStore) StockedLots(ctx context.Context) ([]Lot, error) {
+	rows, err := sqlcgen.New(s.pool).ListStockedLots(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listar os lotes com stock: %w", err)
+	}
+	out := make([]Lot, len(rows))
+	for i, r := range rows {
+		out[i] = toLot(sqlcgen.LockLotRow(r))
+	}
+	return out, nil
+}
+
+func (s *PostgresStore) ClaimDay(ctx context.Context, day time.Time) (bool, error) {
+	n, err := sqlcgen.New(s.pool).ClaimAlertDay(ctx, day)
+	if err != nil {
+		return false, fmt.Errorf("marcar o dia do alerta: %w", err)
+	}
+	return n == 1, nil
+}
+
+func (s *PostgresStore) ReleaseDay(ctx context.Context, day time.Time) error {
+	if err := sqlcgen.New(s.pool).ReleaseAlertDay(ctx, day); err != nil {
+		return fmt.Errorf("libertar o dia do alerta: %w", err)
+	}
+	return nil
 }
 
 func (s *PostgresStore) HasLots(ctx context.Context, productID uuid.UUID) (bool, error) {

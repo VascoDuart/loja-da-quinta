@@ -54,6 +54,11 @@ type RefreshToken struct {
 	CreatedAt time.Time
 }
 
+type StockAlertRun struct {
+	Day       time.Time
+	CreatedAt time.Time
+}
+
 type StockLot struct {
 	ID          uuid.UUID
 	ProductID   uuid.UUID

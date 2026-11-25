@@ -54,6 +54,21 @@ func (q *Queries) AddToLot(ctx context.Context, arg AddToLotParams) (AddToLotRow
 	return i, err
 }
 
+const claimAlertDay = `-- name: ClaimAlertDay :execrows
+INSERT INTO stock_alert_runs (day) VALUES ($1::date)
+ON CONFLICT (day) DO NOTHING
+`
+
+// Reserva o dia do alerta. 0 linhas: o dia já estava marcado. Com outro
+// pedido a meio de inserir o mesmo dia, espera que ele confirme ou desista.
+func (q *Queries) ClaimAlertDay(ctx context.Context, day time.Time) (int64, error) {
+	result, err := q.db.Exec(ctx, claimAlertDay, day)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getLot = `-- name: GetLot :one
 SELECT id, product_id, unit, (qty_received * 1000)::bigint AS qty_received_milli,
        (qty_left * 1000)::bigint AS qty_left_milli, harvested_on, expires_on, created_at
@@ -238,6 +253,57 @@ func (q *Queries) ListLots(ctx context.Context, arg ListLotsParams) ([]ListLotsR
 	return items, nil
 }
 
+const listStockedLots = `-- name: ListStockedLots :many
+SELECT id, product_id, unit, (qty_received * 1000)::bigint AS qty_received_milli,
+       (qty_left * 1000)::bigint AS qty_left_milli, harvested_on, expires_on, created_at
+FROM stock_lots
+WHERE qty_left > 0
+ORDER BY product_id, expires_on, created_at
+`
+
+type ListStockedLotsRow struct {
+	ID               uuid.UUID
+	ProductID        uuid.UUID
+	Unit             string
+	QtyReceivedMilli int64
+	QtyLeftMilli     int64
+	HarvestedOn      time.Time
+	ExpiresOn        time.Time
+	CreatedAt        time.Time
+}
+
+// Todos os lotes com stock (também os fora de validade), por produto e pela
+// ordem FEFO: a base da consulta do stock e dos alertas (#14). Sem limite: as
+// somas do stock têm de contar todos os lotes.
+func (q *Queries) ListStockedLots(ctx context.Context) ([]ListStockedLotsRow, error) {
+	rows, err := q.db.Query(ctx, listStockedLots)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListStockedLotsRow{}
+	for rows.Next() {
+		var i ListStockedLotsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProductID,
+			&i.Unit,
+			&i.QtyReceivedMilli,
+			&i.QtyLeftMilli,
+			&i.HarvestedOn,
+			&i.ExpiresOn,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockLot = `-- name: LockLot :one
 SELECT id, product_id, unit, (qty_received * 1000)::bigint AS qty_received_milli,
        (qty_left * 1000)::bigint AS qty_left_milli, harvested_on, expires_on, created_at
@@ -286,6 +352,16 @@ func (q *Queries) ProductHasLots(ctx context.Context, productID uuid.UUID) (bool
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const releaseAlertDay = `-- name: ReleaseAlertDay :exec
+DELETE FROM stock_alert_runs WHERE day = $1::date
+`
+
+// Liberta o dia quando o envio falhou, para se voltar a tentar.
+func (q *Queries) ReleaseAlertDay(ctx context.Context, day time.Time) error {
+	_, err := q.db.Exec(ctx, releaseAlertDay, day)
+	return err
 }
 
 const stockByProduct = `-- name: StockByProduct :many

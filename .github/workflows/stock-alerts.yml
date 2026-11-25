@@ -1,0 +1,43 @@
+name: stock-alerts
+
+# Dispara o alerta diário de stock (RF-12, ADR-0015). A API no plano gratuito
+# da Render adormece, por isso o agendamento está aqui e não dentro dela.
+#
+# O cron é em UTC e Lisboa muda de hora: 06:00 UTC são as 07:00 no verão e
+# 07:00 UTC são as 07:00 no inverno. A API só envia a partir das 07:00 de
+# Lisboa e no máximo uma vez por dia, por isso o outro disparo não faz nada.
+#
+# O agendamento e o botão "Run workflow" só funcionam com este ficheiro no
+# branch por omissão (main): começam com a release (#19). Até lá, corre-se o
+# scripts/stock-alerts.sh à mão. Aponta para o staging; a produção vem com a
+# release.
+#
+# Segredo: STAGING_JOBS_TOKEN (o mesmo valor que JOBS_TOKEN na Render).
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stock-alerts
+  cancel-in-progress: false
+
+jobs:
+  alerts:
+    name: alerts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Pedir o alerta do dia
+        env:
+          API_URL: https://loja-da-quinta-api-staging.onrender.com
+          JOBS_TOKEN: ${{ secrets.STAGING_JOBS_TOKEN }}
+        run: bash scripts/stock-alerts.sh

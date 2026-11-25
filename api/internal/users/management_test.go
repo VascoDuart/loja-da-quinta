@@ -60,6 +60,31 @@ func TestOnlyGestorManagesUsers(t *testing.T) {
 	}
 }
 
+func TestActiveManagerEmails(t *testing.T) {
+	f := newManagement(t)
+	ctx := context.Background()
+	create := func(email string, role identity.Role) User {
+		t.Helper()
+		u, err := f.svc.Create(ctx, NewUser{Email: email, Name: "X", Role: role, Password: goodPassword})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return u
+	}
+	rui := create("rui@quinta.pt", identity.RoleGestor)
+	create("ana@quinta.pt", identity.RoleGestor)
+	if _, err := f.svc.Update(ctx, f.gestor, rui.ID, Update{Active: ptr(false)}); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := f.svc.ActiveManagerEmails(ctx)
+	slices.Sort(got)
+	// Só os gestores ativos: nem o funcionário (ze) nem o desativado (rui).
+	if err != nil || !slices.Equal(got, []string{"ana@quinta.pt", "maria@quinta.pt"}) {
+		t.Errorf("ActiveManagerEmails = %v, %v", got, err)
+	}
+}
+
 func TestGestorListsAndCreates(t *testing.T) {
 	f := newManagement(t)
 	ctx := context.Background()

@@ -9,7 +9,7 @@ Defesa em profundidade: cada camada assume que a anterior pode falhar.
 | **Borda** (`web/vercel.json`) | Só HTTPS, HSTS, CSP restritiva (`default-src 'self'`), `frame-ancestors 'none'`, `X-Content-Type-Options: nosniff` e `Referrer-Policy`. A API fica na mesma origem através de um rewrite ([ADR-0007](../adr/0007-mesma-origem-via-rewrite.md)). |
 | **API** | Rate limiting por IP e, no login, por conta (5 tentativas falhadas em 15 min). Validação de todos os pedidos contra a OpenAPI, limite de tamanho do corpo, timeouts e erros `problem+json` sem detalhes internos. |
 | **Autenticação** | argon2id, JWT de acesso Ed25519 com 15 min e `kid`, refresh opaco de 7 dias com rotação e deteção de reutilização ([ADR-0005](../adr/0005-autenticacao-propria.md)). |
-| **Autorização** | RBAC com tudo negado por omissão: o middleware verifica o papel por rota e o serviço volta a verificar. A [matriz](authz-matrix.md) é testada automaticamente. |
+| **Autorização** | RBAC com tudo negado por omissão: o middleware verifica o papel por rota e o serviço volta a verificar. A [matriz](authz-matrix.md) é testada automaticamente. Os jobs agendados têm um token próprio, que não dá acesso a mais nada ([ADR-0015](../adr/0015-alertas-diarios-por-agendamento-externo.md)). |
 | **CSRF e XSS** | Mesma origem com `SameSite=Strict` e cabeçalho `X-CSRF` obrigatório no login, no refresh e no logout. O cookie só vai para `/api/v1/auth`. O React escapa o conteúdo; `dangerouslySetInnerHTML` está proibido por ESLint; CSP sem `unsafe-inline` nos scripts. |
 | **Dados** | Queries parametrizadas (sqlc), TLS para a Neon, papéis PostgreSQL `migrator`, `app` e `readonly` ([modelo de dados](../architecture/data-model.md#papéis-postgresql)). |
 | **Segredos** | Variáveis de ambiente na Render e na Vercel e GitHub Secrets. O `.env` é só local e está no `.gitignore`. gitleaks corre no CI. |
@@ -71,4 +71,5 @@ Detalhes que fecham buracos conhecidos:
 | Refresh token | 32 bytes aleatórios, guardado como SHA-256, 7 dias |
 | Rate limit login | 5 tentativas falhadas por conta em 15 min; 20 falhadas por IP por minuto (429) |
 | Tamanho máximo do corpo | 1 MiB |
-| Timeout por pedido | 10 s |
+| Timeout por pedido | 10 s (30 s no upload de imagens, 25 s no job dos alertas) |
+| Token dos jobs | pelo menos 32 caracteres (`openssl rand -hex 32`), em `JOBS_TOKEN` |

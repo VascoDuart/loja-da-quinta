@@ -216,3 +216,15 @@ it('o gestor chega aos ajustes pelo ecrã de stock', async () => {
   await user.click(await screen.findByRole('link', { name: 'Registar um ajuste ou uma quebra' }))
   expect(await screen.findByRole('heading', { name: 'Ajustes e quebras', level: 1 })).toBeInTheDocument()
 })
+
+it('abre com o produto e o lote que vierem no endereço (ligação da consulta do stock)', async () => {
+  renderAt('/app/stock/ajustes?produto=p-laranja&lote=l-novo')
+  expect(await lotRadio(/restam 8,500 kg/)).toBeChecked()
+  expect(screen.getByLabelText('Produto')).toHaveValue('p-laranja')
+})
+
+it('um produto ou lote do endereço que não existe fica no primeiro da lista', async () => {
+  renderAt('/app/stock/ajustes?produto=outro&lote=outro')
+  expect(await lotRadio(/fora de validade/)).toBeChecked()
+  expect(screen.getByLabelText('Produto')).toHaveValue('p-laranja')
+})

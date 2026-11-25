@@ -81,7 +81,7 @@ func TestTLSRequiredOutsideDevelopment(t *testing.T) {
 		{"production", "mysql://app:x@neon.tech/loja?sslmode=require", false},
 	}
 	for _, c := range cases {
-		_, err := FromLookup(lookupFrom(map[string]string{"APP_ENV": c.env, "DATABASE_URL": c.url, "JWT_SIGNING_KEY": "k:x"}))
+		_, err := FromLookup(lookupFrom(map[string]string{"APP_ENV": c.env, "DATABASE_URL": c.url, "JWT_SIGNING_KEY": "k:x", "JOBS_TOKEN": jobsToken}))
 		if (err == nil) != c.ok {
 			t.Errorf("%s %s: ok=%v, erro=%v", c.env, c.url, c.ok, err)
 		}
@@ -91,10 +91,63 @@ func TestTLSRequiredOutsideDevelopment(t *testing.T) {
 func TestJWTSigningKeyRequiredOutsideDevelopment(t *testing.T) {
 	for env, ok := range map[string]bool{"development": true, "staging": false, "production": false} {
 		_, err := FromLookup(lookupFrom(map[string]string{
-			"APP_ENV": env, "DATABASE_URL": "postgres://app:x@neon.tech/loja?sslmode=require",
+			"APP_ENV": env, "DATABASE_URL": "postgres://app:x@neon.tech/loja?sslmode=require", "JOBS_TOKEN": jobsToken,
 		}))
 		if (err == nil) != ok {
 			t.Errorf("%s sem JWT_SIGNING_KEY: ok=%v, erro=%v", env, ok, err)
+		}
+	}
+}
+
+var jobsToken = strings.Repeat("j", MinJobsTokenLen)
+
+func TestJobsTokenRequiredOutsideDevelopment(t *testing.T) {
+	for env, ok := range map[string]bool{"development": true, "staging": false, "production": false} {
+		_, err := FromLookup(lookupFrom(map[string]string{
+			"APP_ENV": env, "DATABASE_URL": "postgres://app:x@neon.tech/loja?sslmode=require", "JWT_SIGNING_KEY": "k:x",
+		}))
+		if (err == nil) != ok {
+			t.Errorf("%s sem JOBS_TOKEN: ok=%v, erro=%v", env, ok, err)
+		}
+		if !ok && !strings.Contains(err.Error(), "JOBS_TOKEN") {
+			t.Errorf("o erro devia falar do JOBS_TOKEN: %v", err)
+		}
+	}
+}
+
+func TestAlertSettings(t *testing.T) {
+	base := func(extra map[string]string) (Config, error) {
+		extra["DATABASE_URL"] = "postgres://app:x@localhost/loja"
+		return FromLookup(lookupFrom(extra))
+	}
+
+	cfg, err := base(map[string]string{})
+	if err != nil || cfg.JobsToken != "" || cfg.ResendAPIKey != "" || len(cfg.AlertsTo) != 0 ||
+		cfg.AlertsFrom != "Loja da Quinta <onboarding@resend.dev>" {
+		t.Errorf("por omissão: %+v %v", cfg, err)
+	}
+
+	cfg, err = base(map[string]string{
+		"JOBS_TOKEN": jobsToken + "\r\n", "RESEND_API_KEY": " re_x\n", "ALERTS_TO": "a@quinta.pt, b@quinta.pt,",
+	})
+	if err != nil || cfg.JobsToken != jobsToken || cfg.ResendAPIKey != "re_x" || len(cfg.AlertsTo) != 2 || cfg.AlertsTo[1] != "b@quinta.pt" {
+		t.Errorf("com valores: %+v %v", cfg, err)
+	}
+
+	for name, vars := range map[string]map[string]string{
+		"token curto":        {"JOBS_TOKEN": jobsToken[1:]},
+		"token com espaços":  {"JOBS_TOKEN": jobsToken + " " + jobsToken},
+		"remetente inválido": {"ALERTS_FROM": "sem arroba"},
+		"destinatário":       {"ALERTS_TO": "a@quinta.pt,isto-nao"},
+		"nome no ALERTS_TO":  {"ALERTS_TO": "Ana <a@quinta.pt>"},
+	} {
+		_, err := base(vars)
+		if err == nil {
+			t.Errorf("%s: devia ser recusado", name)
+			continue
+		}
+		if v := vars["JOBS_TOKEN"]; v != "" && strings.Contains(err.Error(), v) {
+			t.Errorf("%s: o erro repete o token: %v", name, err)
 		}
 	}
 }

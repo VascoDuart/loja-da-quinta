@@ -10,7 +10,7 @@ flowchart TB
 
     subgraph MW["Middleware (por ordem)"]
         direction LR
-        M1[Recover] --> M2[Request ID] --> M3[Logging] --> M4[Cabeçalhos] --> M5[Rate limit] --> M6[Tamanho do corpo] --> M7[Timeout] --> M8[JWT] --> M9[RBAC]
+        M1[Recover] --> M2[Request ID] --> M3[Logging] --> M4[Cabeçalhos] --> M5[Rate limit] --> M6[Tamanho do corpo] --> M7[Timeout] --> M8[JWT] --> M9[RBAC<br/>ou token do job]
     end
 
     HTTP["Adaptador HTTP<br/><small>handlers gerados (oapi-codegen) · validação contra a OpenAPI · DTO ↔ domínio · erros problem+json</small>"]
@@ -20,7 +20,7 @@ flowchart TB
         AUTH["<b>auth</b><br/>Login · Logout · Refresh<br/><small>Sessão · Credencial</small><br/><i>SessionRepo · Hasher</i>"]
         USERS["<b>users</b><br/>Criar · Editar · Desativar<br/><small>Utilizador · Papel</small><br/><i>UserRepo</i>"]
         CAT["<b>catalog</b><br/>Produtos · Categorias<br/><small>Produto · IVA · Unidade · Época</small><br/><i>ProductRepo</i>"]
-        INV["<b>inventory</b><br/>Entrada · Ajuste · Alertas<br/><small>Lote · FEFO · Movimento</small><br/><i>StockRepo · Notifier</i>"]
+        INV["<b>inventory</b><br/>Entrada · Ajuste · Consulta · Alertas<br/><small>Lote · FEFO · Movimento</small><br/><i>Repo · Products · AlertDays<br/>Recipients · Notifier</i>"]
         SALES["<b>sales</b><br/>Registar · Anular<br/><small>Venda · Linha · Pagamento</small><br/><i>SaleRepo · TxManager</i>"]
         REP["<b>reports</b><br/>Por período · Top produtos<br/><small>modelos de leitura</small><br/><i>ReportQuery</i>"]
         AUD["<b>audit</b><br/>Registar · Pesquisar<br/><small>Evento</small><br/><i>AuditRepo</i>"]
@@ -29,7 +29,7 @@ flowchart TB
     subgraph AD["Adaptadores (implementam as portas)"]
         direction LR
         PGA["PostgreSQL<br/><small>pgx + sqlc · transações</small>"]
-        MA["E-mail<br/><small>Resend</small>"]
+        MA["E-mail<br/><small>Resend ou log</small>"]
         CR["Argon2id · JWT · relógio"]
     end
 
@@ -51,7 +51,37 @@ flowchart TB
 
 As dependências apontam para dentro: o domínio não importa nada de HTTP nem de SQL. Os adaptadores implementam as portas, por isso os serviços testam-se com fakes em memória e os repositórios com PostgreSQL real (testcontainers).
 
-`inventory` e `sales` estão em destaque porque partilham a transação da venda: `sales` chama o serviço de `inventory` dentro do mesmo `TxManager`. O job de alertas é uma goroutine agendada no mesmo processo e é o primeiro candidato a serviço separado (v2, com o outbox pattern).
+`inventory` e `sales` estão em destaque porque partilham a transação da venda: `sales` chama o serviço de `inventory` dentro do mesmo `TxManager`.
+
+## Alertas diários
+
+Não há nenhuma goroutine agendada: no plano gratuito a API adormece e às 07:00 não estaria a correr ([ADR-0015](../adr/0015-alertas-diarios-por-agendamento-externo.md)). Um workflow do GitHub Actions chama `POST /api/v1/jobs/stock-alerts` com o token dos jobs.
+
+```mermaid
+sequenceDiagram
+    participant GH as GitHub Actions
+    participant API as API (inventory)
+    participant DB as PostgreSQL
+    participant R as Resend
+    GH->>API: POST /jobs/stock-alerts + X-Job-Token
+    Note over API: antes das 07:00 de Lisboa não faz nada
+    API->>DB: lotes com stock (e produtos, pelo catálogo)
+    Note over API: sem nada a avisar não faz mais nada
+    API->>DB: marca o dia (chave primária)
+    alt dia já marcado
+        API-->>GH: ja_enviado
+    else dia livre
+        API->>R: e-mail aos destinatários
+        alt envio falhou
+            API->>DB: liberta o dia
+            API-->>GH: 502
+        else
+            API-->>GH: enviado
+        end
+    end
+```
+
+O dia de Lisboa, a janela das 07:00 e a unicidade são da API, não do agendamento: chamar o endpoint as vezes que se quiser é seguro.
 
 ## Organização de um módulo
 
@@ -77,10 +107,10 @@ Ordem em `internal/platform/httpserver/server.go`. O primeiro é o mais exterior
 | 3 | Access log | Regista o status final, incluindo 429 e 500 |
 | 4 | Cabeçalhos de segurança | Aplicam-se também às respostas de erro |
 | 5 | Rate limit | Antes de qualquer trabalho caro |
-| 6 | Tamanho do corpo (1 MiB) | Antes de ler o corpo. Só o upload de imagens tem 5 MB (e 30 s de prazo), numa lista explícita de rotas |
+| 6 | Tamanho do corpo (1 MiB) | Antes de ler o corpo. Numa lista explícita de rotas: o upload de imagens tem 5 MB e 30 s; o job dos alertas, 4 KiB e 25 s |
 | 7 | Timeout (10 s) | Prazo propagado pelo contexto até à base de dados |
 | 8 | JWT | Lê o `Authorization: Bearer` e põe o principal no contexto; não recusa nada |
-| 9 | Validação OpenAPI e RBAC | Primeiro a segurança (401 sem sessão, 403 sem papel, com os papéis da spec); depois parâmetros e corpo (400) |
+| 9 | Validação OpenAPI e RBAC | Primeiro a segurança (401 sem sessão, 403 sem papel, com os papéis da spec; nas operações `jobToken`, 401 sem o token dos jobs); depois parâmetros e corpo (400) |
 
 **Sem CORS:** a API está na mesma origem que o frontend, graças ao rewrite da Vercel ([ADR-0007](../adr/0007-mesma-origem-via-rewrite.md)). Sem cabeçalhos CORS, o browser bloqueia pedidos de outros sites, que é o comportamento que queremos.
 
@@ -97,7 +127,7 @@ Se o `/healthz` dependesse da base de dados, uma falha na Neon faria a Render re
 
 - Um módulo só importa de outro módulo a **interface do seu serviço**, nunca o repositório nem os tipos internos.
 - `domain.go` não importa `net/http`, `database/sql`, `pgx` nem outro módulo.
-- Quando dois módulos precisam um do outro, cada um declara a porta de que precisa e a composição (`internal/app`) liga-os: o `inventory` pergunta ao serviço do `catalog` pelos produtos (`Products`), e o catálogo público pergunta ao `inventory` quanto stock há (`StockSource`). Nenhum lê as tabelas do outro.
+- Quando dois módulos precisam um do outro, cada um declara a porta de que precisa e a composição (`internal/app`) liga-os: o `inventory` pergunta ao serviço do `catalog` pelos produtos (`Products`: nome, unidade, limiar de stock baixo), e o catálogo público pergunta ao `inventory` quanto stock há (`StockSource`). Os destinatários dos alertas são os gestores ativos, pedidos ao `users` pela porta `Recipients`. Nenhum lê as tabelas do outro.
 - Estas regras são verificadas no CI com `depguard` (golangci-lint).
 
 ## Convenções

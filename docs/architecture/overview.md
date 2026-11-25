@@ -38,7 +38,6 @@ flowchart LR
     end
     subgraph R["Render · Free"]
         API["<b>API Go</b><br/><small>contentor Docker</small>"]
-        JOB["Job de alertas<br/><small>mesmo processo · diário</small>"]
     end
     subgraph N["Neon · Free"]
         PG[("PostgreSQL 16<br/><small>TLS obrigatório</small>")]
@@ -53,7 +52,8 @@ flowchart LR
     SPA -- "HTTPS" --> CDN
     CDN -- "proxy /api/*" --> API
     API -- "pgx · TLS" --> PG
-    JOB -- "HTTPS" --> MAIL
+    API -- "HTTPS" --> MAIL
+    CI -. "alerta diário (token dos jobs)" .-> API
     CI -. "deploy da SPA" .-> CDN
     CI -. "deploy da imagem" .-> API
     CI -. "migrações goose" .-> PG
@@ -93,6 +93,6 @@ Papéis na base de dados ([infra/neon/init-roles.sql](../../infra/neon/init-role
 | `app` | a API na Render | só DML (`SELECT`, `INSERT`, `UPDATE`, `DELETE`) |
 | `readonly` | o DBeaver | só `SELECT` |
 
-Segredos no GitHub: `STAGING_MIGRATIONS_DATABASE_URL` (papel `migrator`), `RENDER_STAGING_DEPLOY_HOOK` e as palavras-passe das contas E2E (`E2E_GESTOR_PASSWORD`, `E2E_FUNCIONARIO_PASSWORD`). Na Render ficam o `DATABASE_URL` da API (papel `app`) e o `JWT_SIGNING_KEY`.
+Segredos no GitHub: `STAGING_MIGRATIONS_DATABASE_URL` (papel `migrator`), `RENDER_STAGING_DEPLOY_HOOK`, as palavras-passe das contas E2E (`E2E_GESTOR_PASSWORD`, `E2E_FUNCIONARIO_PASSWORD`) e `STAGING_JOBS_TOKEN`. Na Render ficam o `DATABASE_URL` da API (papel `app`), o `JWT_SIGNING_KEY` e o `JOBS_TOKEN`; para os alertas saírem por e-mail, também `RESEND_API_KEY` e `ALERTS_TO` ([ADR-0015](../adr/0015-alertas-diarios-por-agendamento-externo.md)).
 
 As contas `e2e-gestor@loja.test` e `e2e-funcionario@loja.test` são criadas pelo workflow com `createuser -if-missing`, logo depois das migrações. São só de teste: o domínio `.test` é reservado e nunca recebe e-mail.

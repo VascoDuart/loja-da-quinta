@@ -60,6 +60,26 @@ WHERE id = sqlc.arg(id)
 RETURNING id, product_id, unit, (qty_received * 1000)::bigint AS qty_received_milli,
           (qty_left * 1000)::bigint AS qty_left_milli, harvested_on, expires_on, created_at;
 
+-- Todos os lotes com stock (também os fora de validade), por produto e pela
+-- ordem FEFO: a base da consulta do stock e dos alertas (#14). Sem limite: as
+-- somas do stock têm de contar todos os lotes.
+-- name: ListStockedLots :many
+SELECT id, product_id, unit, (qty_received * 1000)::bigint AS qty_received_milli,
+       (qty_left * 1000)::bigint AS qty_left_milli, harvested_on, expires_on, created_at
+FROM stock_lots
+WHERE qty_left > 0
+ORDER BY product_id, expires_on, created_at;
+
+-- Reserva o dia do alerta. 0 linhas: o dia já estava marcado. Com outro
+-- pedido a meio de inserir o mesmo dia, espera que ele confirme ou desista.
+-- name: ClaimAlertDay :execrows
+INSERT INTO stock_alert_runs (day) VALUES (sqlc.arg(day)::date)
+ON CONFLICT (day) DO NOTHING;
+
+-- Liberta o dia quando o envio falhou, para se voltar a tentar.
+-- name: ReleaseAlertDay :exec
+DELETE FROM stock_alert_runs WHERE day = sqlc.arg(day)::date;
+
 -- Lotes de um produto para os ajustes: os que ainda têm stock (também fora
 -- de validade, para a quebra) e os que ainda estão dentro da validade (um
 -- lote posto a 0 por engano ainda se corrige). Pela ordem em que o stock sai

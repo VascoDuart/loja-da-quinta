@@ -20,3 +20,4 @@ Para um novo ADR, copia [`template.md`](template.md) e usa o número seguinte.
 | [0012](0012-estrategia-de-branches.md) | `main` + `dev` com branches curtos | Aceite |
 | [0013](0013-design-system-horta-fresca.md) | Design system "Horta Fresca" com modo claro e escuro | Aceite |
 | [0014](0014-imagens-dos-produtos-no-postgresql.md) | Imagens dos produtos no PostgreSQL, servidas pela CDN | Aceite |
+| [0015](0015-alertas-diarios-por-agendamento-externo.md) | Alertas diários disparados pelo GitHub Actions | Aceite |

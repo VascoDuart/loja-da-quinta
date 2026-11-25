@@ -28,8 +28,29 @@ import (
 // do plano gratuito da Render.
 const maxConcurrentHashes = 4
 
+// Option troca uma peça da composição. Só os testes de integração as usam.
+type Option func(*options)
+
+type options struct {
+	now      func() time.Time
+	notifier inventory.Notifier
+}
+
+// WithClock fixa o relógio do stock e dos alertas.
+func WithClock(now func() time.Time) Option { return func(o *options) { o.now = now } }
+
+// WithNotifier troca o envio dos alertas por outro (um fake).
+func WithNotifier(n inventory.Notifier) Option { return func(o *options) { o.notifier = n } }
+
 // New devolve o handler HTTP completo da API.
-func New(ctx context.Context, cfg config.Config, log *slog.Logger, pool *pgxpool.Pool) (http.Handler, error) {
+func New(ctx context.Context, cfg config.Config, log *slog.Logger, pool *pgxpool.Pool, opts ...Option) (http.Handler, error) {
+	o := options{now: time.Now}
+	for _, opt := range opts {
+		opt(&o)
+	}
+	if o.notifier == nil {
+		o.notifier = newNotifier(cfg, log)
+	}
 	tokens, err := newTokens(cfg, log)
 	if err != nil {
 		return nil, err
@@ -47,19 +68,21 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, pool *pgxpool
 	// do outro.
 	catalogStore := catalog.NewPostgresStore(pool)
 	catalogSvc := catalog.NewService(catalogStore, catalogStore)
-	inventorySvc := inventory.NewService(inventory.NewPostgresStore(pool), catalogProducts{catalogSvc}, time.Now)
+	inventoryStore := inventory.NewPostgresStore(pool)
+	inventorySvc := inventory.NewService(inventoryStore, catalogProducts{catalogSvc}, o.now)
 	catalogSvc.WithStock(inventorySvc)
+	alerts := inventory.NewAlerts(inventorySvc, inventoryStore, newRecipients(cfg, userSvc), o.notifier, log)
 
 	api := httpapi.New(
 		health.NewHandler(pool, log, cfg.Version),
 		auth.NewEndpoints(authSvc),
 		users.NewEndpoints(userSvc),
 		catalog.NewEndpoints(catalogSvc),
-		inventory.NewEndpoints(inventorySvc),
+		inventory.NewEndpoints(inventorySvc, alerts),
 	)
 	return httpserver.NewHandler(cfg, log, api, httpserver.Security{
 		Authenticate: authSvc.Authenticate,
-		Authorize:    auth.Authorize,
+		Authorize:    auth.Authorizer(cfg.JobsToken),
 	})
 }
 
@@ -86,5 +109,24 @@ func (c catalogProducts) Product(ctx context.Context, id uuid.UUID) (inventory.P
 	if err != nil {
 		return inventory.Product{}, err
 	}
-	return inventory.Product{ID: p.ID, Name: p.Name, Unit: string(p.Unit), Decimal: p.Unit.Decimal(), Active: p.Active}, nil
+	return stockProduct(p), nil
+}
+
+func (c catalogProducts) Products(ctx context.Context) ([]inventory.Product, error) {
+	all, err := c.svc.ListProducts(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]inventory.Product, len(all))
+	for i, p := range all {
+		out[i] = stockProduct(p)
+	}
+	return out, nil
+}
+
+func stockProduct(p catalog.Product) inventory.Product {
+	return inventory.Product{
+		ID: p.ID, Name: p.Name, Unit: string(p.Unit), Decimal: p.Unit.Decimal(), Active: p.Active,
+		LowStockMilli: p.LowStockMilli,
+	}
 }

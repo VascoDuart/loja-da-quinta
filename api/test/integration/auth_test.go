@@ -235,6 +235,7 @@ func TestAuthorizationMatrix(t *testing.T) {
 	e := newEnv(t)
 	e.createUser(t, "gestor@quinta.pt", identity.RoleGestor, pw)
 	e.createUser(t, "funcionario@quinta.pt", identity.RoleFuncionario, pw)
+	e.cfg.JobsToken = jobsToken
 	srv := e.server(t)
 
 	target := e.createUser(t, "alvo@quinta.pt", identity.RoleFuncionario, pw)
@@ -263,6 +264,9 @@ func TestAuthorizationMatrix(t *testing.T) {
 		{"POST", "/stock/lots", newLot, map[string]int{"visitante": 401, "funcionario": 201, "gestor": 201}},
 		{"GET", "/stock/lots?productId=" + stocked.(string), nil, map[string]int{"visitante": 401, "funcionario": 200, "gestor": 200}},
 		{"POST", "/stock/adjustments", adjust, map[string]int{"visitante": 401, "funcionario": 403, "gestor": 201}},
+		{"GET", "/stock", nil, map[string]int{"visitante": 401, "funcionario": 200, "gestor": 200}},
+		// O job não se abre com uma sessão, nem a do gestor (ADR-0015).
+		{"POST", "/jobs/stock-alerts", nil, map[string]int{"visitante": 401, "funcionario": 401, "gestor": 401}},
 	}
 	for _, row := range rows {
 		for who, token := range tokens {
@@ -281,6 +285,40 @@ func TestAuthorizationMatrix(t *testing.T) {
 			})
 		}
 	}
+
+	job := func(token string) map[string]string { return map[string]string{"X-Job-Token": token} }
+
+	t.Run("o token dos jobs abre o job, e mais nada", func(t *testing.T) {
+		if r := call(t, srv, "POST", "/jobs/stock-alerts", nil, job(jobsToken)); r.status != http.StatusOK {
+			t.Errorf("com o token: %d %v", r.status, r.body)
+		}
+		for _, path := range []string{"/stock", "/me", "/users", "/products"} {
+			if r := call(t, srv, "GET", path, nil, job(jobsToken)); r.status != http.StatusUnauthorized {
+				t.Errorf("GET %s com o token dos jobs: queria 401, deu %d", path, r.status)
+			}
+		}
+	})
+
+	t.Run("token dos jobs errado, vazio ou no cabeçalho errado dá 401", func(t *testing.T) {
+		for name, h := range map[string]map[string]string{
+			"errado": job(jobsToken + "x"), "vazio": job(""), "como Bearer": bearer(jobsToken),
+		} {
+			if r := call(t, srv, "POST", "/jobs/stock-alerts", nil, h); r.status != http.StatusUnauthorized {
+				t.Errorf("%s: queria 401, deu %d %v", name, r.status, r.body)
+			}
+		}
+	})
+
+	t.Run("sem JOBS_TOKEN na API, ninguém corre o job", func(t *testing.T) {
+		e.cfg.JobsToken = ""
+		defer func() { e.cfg.JobsToken = jobsToken }()
+		closed := e.server(t)
+		for _, h := range []map[string]string{nil, job(""), job(jobsToken)} {
+			if r := call(t, closed, "POST", "/jobs/stock-alerts", nil, h); r.status != http.StatusUnauthorized {
+				t.Errorf("%v: queria 401, deu %d", h, r.status)
+			}
+		}
+	})
 
 	t.Run("token inválido dá 401", func(t *testing.T) {
 		if r := call(t, srv, "GET", "/me", nil, bearer("nao.e.valido")); r.status != http.StatusUnauthorized {

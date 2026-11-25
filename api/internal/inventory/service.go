@@ -87,6 +87,30 @@ func (s *Service) ListLots(ctx context.Context, actor identity.Principal, produc
 	return s.repo.ListLots(ctx, productID, Day(s.now()))
 }
 
+// Overview é a consulta do stock por produto e por lote (UC-09, RF-11), para
+// o funcionário e o gestor.
+func (s *Service) Overview(ctx context.Context, actor identity.Principal) (Overview, error) {
+	if err := requireStaff(actor); err != nil {
+		return Overview{}, err
+	}
+	return s.overview(ctx, Day(s.now()))
+}
+
+// overview junta os lotes com stock aos produtos do catálogo. Lê primeiro os
+// lotes: um produto com lotes não se apaga, por isso a lista de produtos
+// lida a seguir tem os produtos de todos eles.
+func (s *Service) overview(ctx context.Context, today time.Time) (Overview, error) {
+	lots, err := s.repo.StockedLots(ctx)
+	if err != nil {
+		return Overview{}, err
+	}
+	products, err := s.products.Products(ctx)
+	if err != nil {
+		return Overview{}, err
+	}
+	return BuildOverview(products, lots, today), nil
+}
+
 // HasLots diz se o produto já tem lotes (com ou sem stock). Implementa a
 // porta catalog.LotChecker: um produto com lotes não muda de unidade.
 func (s *Service) HasLots(ctx context.Context, productID uuid.UUID) (bool, error) {

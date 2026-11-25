@@ -13,13 +13,21 @@ import (
 )
 
 // Endpoints implementa as operações da tag inventory da OpenAPI.
-type Endpoints struct{ svc *Service }
+type Endpoints struct {
+	svc    *Service
+	alerts *Alerts
+}
 
 // NewEndpoints cria os handlers.
-func NewEndpoints(svc *Service) *Endpoints { return &Endpoints{svc: svc} }
+func NewEndpoints(svc *Service, alerts *Alerts) *Endpoints {
+	return &Endpoints{svc: svc, alerts: alerts}
+}
 
 const (
 	msgForbidden       = "Não tens permissão para registar stock."
+	msgForbiddenView   = "Não tens permissão para ver o stock."
+	msgAlertNotSent    = "O e-mail não foi enviado. O próximo pedido volta a tentar."
+	msgNoRecipients    = "Não há a quem enviar: é preciso um gestor ativo ou ALERTS_TO."
 	msgForbiddenAdjust = "Só o gestor pode registar ajustes e quebras."
 	msgLotNotFound     = "Este lote não existe."
 	msgProductNotFound = "O produto escolhido não existe."
@@ -90,6 +98,64 @@ func (h *Endpoints) ListStockLots(ctx context.Context, req gen.ListStockLotsRequ
 	for i, l := range lots {
 		out[i] = toStockLot(l)
 	}
+	return out, nil
+}
+
+func (h *Endpoints) GetStockOverview(ctx context.Context, _ gen.GetStockOverviewRequestObject) (gen.GetStockOverviewResponseObject, error) {
+	o, err := h.svc.Overview(ctx, actor(ctx))
+	switch {
+	case errors.Is(err, identity.ErrForbidden):
+		return gen.GetStockOverview403ApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusForbidden, msgForbiddenView)), nil
+	case err != nil:
+		return nil, err
+	}
+	out := gen.GetStockOverview200JSONResponse{
+		Today:         openapi_types.Date{Time: o.Today},
+		ExpiringUntil: openapi_types.Date{Time: o.ExpiringUntil},
+		Products:      make([]gen.StockProduct, len(o.Products)),
+	}
+	for i, p := range o.Products {
+		lots := make([]gen.StockOverviewLot, len(p.Lots))
+		for j, l := range p.Lots {
+			base := toStockLot(l.Lot)
+			lots[j] = gen.StockOverviewLot{
+				Id: base.Id, ProductId: base.ProductId, Unit: base.Unit,
+				QuantityReceivedMilli: base.QuantityReceivedMilli, QuantityLeftMilli: base.QuantityLeftMilli,
+				HarvestedOn: base.HarvestedOn, ExpiresOn: base.ExpiresOn, CreatedAt: base.CreatedAt,
+				Status: gen.LotStatus(l.Status),
+			}
+		}
+		out.Products[i] = gen.StockProduct{
+			ProductId: p.Product.ID, Name: p.Product.Name, Unit: gen.Unit(p.Product.Unit), Active: p.Product.Active,
+			SellableMilli: p.SellableMilli, LowStockMilli: p.Product.LowStockMilli, Low: p.Low, Lots: lots,
+		}
+	}
+	return out, nil
+}
+
+// RunStockAlerts é o job diário. Quem o pode chamar é decidido antes, pelo
+// esquema jobToken da OpenAPI.
+func (h *Endpoints) RunStockAlerts(ctx context.Context, _ gen.RunStockAlertsRequestObject) (gen.RunStockAlertsResponseObject, error) {
+	run, err := h.alerts.Run(ctx)
+	switch {
+	case errors.Is(err, ErrNoRecipients):
+		h.alerts.log.ErrorContext(ctx, "alerta de stock sem destinatários", "err", err)
+		return gen.RunStockAlerts502ApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusBadGateway, msgNoRecipients)), nil
+	case errors.Is(err, ErrAlertNotSent):
+		h.alerts.log.ErrorContext(ctx, "o alerta de stock não foi enviado", "err", err)
+		return gen.RunStockAlerts502ApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusBadGateway, msgAlertNotSent)), nil
+	case err != nil:
+		return nil, err
+	}
+	out := gen.RunStockAlerts200JSONResponse{
+		Status: gen.StockAlertsRunStatus(run.Status), Day: openapi_types.Date{Time: run.Day},
+		LowStockCount: run.Low, ExpiringCount: run.Expiring, ExpiredCount: run.Expired,
+	}
+	if run.Delivery != "" {
+		d := gen.StockAlertsRunDelivery(run.Delivery)
+		out.Delivery = &d
+	}
+	h.alerts.log.InfoContext(ctx, "job dos alertas de stock", "estado", run.Status, "entrega", run.Delivery)
 	return out, nil
 }
 

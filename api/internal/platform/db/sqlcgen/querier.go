@@ -6,6 +6,7 @@ package sqlcgen
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -15,6 +16,9 @@ type Querier interface {
 	// bloqueado (LockLot) e depois de o serviço ver que não fica negativo; o
 	// CHECK (qty_left >= 0) é a última defesa.
 	AddToLot(ctx context.Context, arg AddToLotParams) (AddToLotRow, error)
+	// Reserva o dia do alerta. 0 linhas: o dia já estava marcado. Com outro
+	// pedido a meio de inserir o mesmo dia, espera que ele confirme ou desista.
+	ClaimAlertDay(ctx context.Context, day time.Time) (int64, error)
 	CreateCategory(ctx context.Context, name string) (Category, error)
 	CreateProduct(ctx context.Context, arg CreateProductParams) (uuid.UUID, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
@@ -63,6 +67,10 @@ type Querier interface {
 	// público pode ver (nunca IVA, limiar de stock, ativo nem datas). O limiar
 	// vem só para o serviço decidir a disponibilidade; não sai para a API.
 	ListPublicProducts(ctx context.Context) ([]ListPublicProductsRow, error)
+	// Todos os lotes com stock (também os fora de validade), por produto e pela
+	// ordem FEFO: a base da consulta do stock e dos alertas (#14). Sem limite: as
+	// somas do stock têm de contar todos os lotes.
+	ListStockedLots(ctx context.Context) ([]ListStockedLotsRow, error)
 	ListUsers(ctx context.Context) ([]User, error)
 	// Bloqueia o lote até ao fim da transação: quem quiser mexer no mesmo lote
 	// (outro ajuste, uma venda) espera, e depois lê o que restar. É a base de
@@ -74,6 +82,8 @@ type Querier interface {
 	ProductExists(ctx context.Context, id uuid.UUID) (bool, error)
 	// Se o produto tem algum lote (com ou sem stock): a unidade dele já não muda.
 	ProductHasLots(ctx context.Context, productID uuid.UUID) (bool, error)
+	// Liberta o dia quando o envio falhou, para se voltar a tentar.
+	ReleaseAlertDay(ctx context.Context, day time.Time) error
 	RenameCategory(ctx context.Context, arg RenameCategoryParams) (Category, error)
 	RevokeRefreshFamily(ctx context.Context, familyID uuid.UUID) (int64, error)
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error

@@ -64,9 +64,9 @@ func newEnv(t *testing.T) *env {
 
 // server arranca a API completa, montada pelo mesmo código do cmd/api. Cada
 // chamada dá uma instância nova, com os limites de login a zero.
-func (e *env) server(t *testing.T) *httptest.Server {
+func (e *env) server(t *testing.T, opts ...app.Option) *httptest.Server {
 	t.Helper()
-	h, err := app.New(context.Background(), e.cfg, slog.New(slog.NewTextHandler(io.Discard, nil)), e.pool)
+	h, err := app.New(context.Background(), e.cfg, slog.New(slog.NewTextHandler(io.Discard, nil)), e.pool, opts...)
 	if err != nil {
 		t.Fatal(err)
 	}
