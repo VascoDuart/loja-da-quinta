@@ -2,6 +2,7 @@ package inventory
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,7 +37,22 @@ func (s *Service) RegisterLot(ctx context.Context, actor identity.Principal, in 
 	if err := in.Validate(p, Day(s.now())); err != nil {
 		return Lot{}, err
 	}
-	return s.repo.CreateLot(ctx, in, actor.UserID)
+	lot, err := s.repo.CreateLot(ctx, in, p.Unit, actor.UserID)
+	if errors.Is(err, errProductKey) {
+		// Entre a leitura do produto e a gravação, o produto foi apagado ou
+		// mudou de unidade (a base de dados recusou o par produto e unidade).
+		if _, err := s.products.Product(ctx, in.ProductID); err != nil {
+			return Lot{}, err
+		}
+		return Lot{}, ErrUnitChanged
+	}
+	return lot, err
+}
+
+// HasLots diz se o produto já tem lotes (com ou sem stock). Implementa a
+// porta catalog.LotChecker: um produto com lotes não muda de unidade.
+func (s *Service) HasLots(ctx context.Context, productID uuid.UUID) (bool, error) {
+	return s.repo.HasLots(ctx, productID)
 }
 
 // StockMilli diz quanto stock vendável há de cada produto, em milésimos: só

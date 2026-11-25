@@ -392,7 +392,9 @@ paths:
       description: |
         Exige If-Match com a versão lida (o ETag, ou o campo version). Se
         outra pessoa mudou o produto entretanto, responde 412 e não grava:
-        nenhuma alteração se perde sem aviso.
+        nenhuma alteração se perde sem aviso. A unidade de um produto que já
+        tem lotes de stock não muda (409): as quantidades dos lotes estão
+        nessa unidade.
       security:
         - bearerAuth: [gestor]
       parameters:
@@ -580,7 +582,8 @@ paths:
         (12500 = 12,5 kg); un, molho e duzia só aceitam múltiplos de 1000. O
         produto tem de existir e estar ativo. A colheita não pode ser no
         futuro e a validade não pode ser anterior à colheita nem a hoje (hora
-        de Lisboa).
+        de Lisboa). O lote guarda a unidade do produto; se ela mudar enquanto
+        se regista, responde 409 e não grava.
       security:
         - bearerAuth: [funcionario, gestor]
       requestBody:
@@ -601,6 +604,8 @@ paths:
         "401":
           $ref: "#/components/responses/Problem"
         "403":
+          $ref: "#/components/responses/Problem"
+        "409":
           $ref: "#/components/responses/Problem"
         "422":
           $ref: "#/components/responses/Problem"
@@ -943,7 +948,7 @@ components:
           description: Último dia em que o lote se pode vender. Nunca antes da colheita nem de hoje.
     StockLot:
       type: object
-      required: [id, productId, quantityReceivedMilli, quantityLeftMilli, harvestedOn, expiresOn, createdAt]
+      required: [id, productId, unit, quantityReceivedMilli, quantityLeftMilli, harvestedOn, expiresOn, createdAt]
       properties:
         id:
           type: string
@@ -951,6 +956,8 @@ components:
         productId:
           type: string
           format: uuid
+        unit:
+          $ref: "#/components/schemas/Unit"
         quantityReceivedMilli:
           type: integer
           format: int64

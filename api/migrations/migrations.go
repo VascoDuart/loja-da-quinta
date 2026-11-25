@@ -26,3 +26,16 @@ func Up(ctx context.Context, db *sql.DB) error {
 	}
 	return nil
 }
+
+// UpTo aplica as migrações em falta até à versão indicada (inclusive). Serve
+// aos testes que preparam dados antes de uma migração.
+func UpTo(ctx context.Context, db *sql.DB, version int64) error {
+	p, err := goose.NewProvider(goose.DialectPostgres, db, files)
+	if err != nil {
+		return fmt.Errorf("preparar as migrações: %w", err)
+	}
+	if _, err := p.UpTo(ctx, version); err != nil {
+		return fmt.Errorf("aplicar as migrações até %d: %w", version, err)
+	}
+	return nil
+}

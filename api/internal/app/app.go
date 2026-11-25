@@ -42,8 +42,9 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, pool *pgxpool
 		return nil, err
 	}
 	authSvc := auth.NewService(userSvc, sessions, tokens, log)
-	// O stock pergunta ao catálogo pelos produtos, e o catálogo público
-	// pergunta ao stock quanto há: cada um só conhece o serviço do outro.
+	// O stock pergunta ao catálogo pelos produtos, e o catálogo pergunta ao
+	// stock quanto há e se um produto tem lotes: cada um só conhece o serviço
+	// do outro.
 	catalogStore := catalog.NewPostgresStore(pool)
 	catalogSvc := catalog.NewService(catalogStore, catalogStore)
 	inventorySvc := inventory.NewService(inventory.NewPostgresStore(pool), catalogProducts{catalogSvc}, time.Now)
@@ -85,5 +86,5 @@ func (c catalogProducts) Product(ctx context.Context, id uuid.UUID) (inventory.P
 	if err != nil {
 		return inventory.Product{}, err
 	}
-	return inventory.Product{ID: p.ID, Name: p.Name, Decimal: p.Unit.Decimal(), Active: p.Active}, nil
+	return inventory.Product{ID: p.ID, Name: p.Name, Unit: string(p.Unit), Decimal: p.Unit.Decimal(), Active: p.Active}, nil
 }

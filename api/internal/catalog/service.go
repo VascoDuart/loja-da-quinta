@@ -19,17 +19,26 @@ type Service struct {
 	// de cada vez, para caber nos 512 MB da Render.
 	imageSlots chan struct{}
 	stock      StockSource
+	lots       LotChecker
 }
 
 // NewService cria o serviço.
 func NewService(repo Repo, images ImageStore) *Service {
-	return &Service{repo: repo, images: images, imageSlots: make(chan struct{}, 1), stock: noStock{}}
+	return &Service{repo: repo, images: images, imageSlots: make(chan struct{}, 1), stock: noStock{}, lots: noLots{}}
 }
 
-// WithStock liga o stock real ao catálogo público (o serviço do módulo
-// inventory). Sem isto, todos os produtos aparecem esgotados.
-func (s *Service) WithStock(stock StockSource) *Service {
-	s.stock = stock
+// Stock é o que o catálogo pergunta ao módulo inventory: quanto há de cada
+// produto e se um produto tem lotes.
+type Stock interface {
+	StockSource
+	LotChecker
+}
+
+// WithStock liga o stock real ao catálogo (o serviço do módulo inventory):
+// a disponibilidade no catálogo público e a regra da unidade dos produtos
+// com lotes. Sem isto, todos os produtos aparecem esgotados.
+func (s *Service) WithStock(stock Stock) *Service {
+	s.stock, s.lots = stock, stock
 	return s
 }
 
@@ -103,7 +112,32 @@ func (s *Service) UpdateProduct(ctx context.Context, actor identity.Principal, i
 	if err := in.Validate(); err != nil {
 		return Product{}, err
 	}
+	if err := s.checkUnitChange(ctx, id, in.Unit); err != nil {
+		return Product{}, err
+	}
 	return s.repo.UpdateProduct(ctx, id, expected, in)
+}
+
+// checkUnitChange recusa mudar a unidade de um produto com lotes, para o
+// gestor ter a explicação (ErrUnitLocked). Um lote que entre logo a seguir
+// a esta verificação é apanhado pela base de dados (migração 00005), e o Repo
+// devolve o mesmo erro.
+func (s *Service) checkUnitChange(ctx context.Context, id uuid.UUID, unit Unit) error {
+	current, err := s.repo.GetProduct(ctx, id)
+	if err != nil {
+		return err // ErrNotFound incluído
+	}
+	if current.Unit == unit {
+		return nil
+	}
+	has, err := s.lots.HasLots(ctx, id)
+	if err != nil {
+		return err
+	}
+	if has {
+		return ErrUnitLocked
+	}
+	return nil
 }
 
 func (s *Service) DeleteProduct(ctx context.Context, actor identity.Principal, id uuid.UUID) error {

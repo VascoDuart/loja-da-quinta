@@ -163,6 +163,23 @@ it('se outra pessoa gravou entretanto, mostra o aviso da API', async () => {
   expect(screen.getByLabelText(/Preço por kg/)).toHaveValue('1,20')
 })
 
+it('mudar a unidade de um produto com lotes mostra a explicação da API e não perde o formulário', async () => {
+  const detail =
+    'Este produto já tem lotes de stock, registados nesta unidade: a unidade não se pode mudar. Se precisas de outra unidade, cria um produto novo e desativa este.'
+  server.use(http.put('*/api/v1/products/:id', () => problem(409, detail)))
+  const user = userEvent.setup()
+  renderPage()
+  await productList()
+  await user.click(screen.getByRole('button', { name: 'Editar Laranja do Algarve' }))
+  await user.selectOptions(screen.getByLabelText('Unidade de venda'), 'un')
+  await user.clear(screen.getByLabelText(/Stock baixo/))
+  await user.type(screen.getByLabelText(/Stock baixo/), '5')
+  await user.click(screen.getByRole('button', { name: 'Guardar' }))
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('já tem lotes de stock')
+  expect(screen.getByLabelText('Unidade de venda')).toHaveValue('un')
+})
+
 it('uma categoria com produtos não mostra o botão de apagar', async () => {
   server.use(
     http.get('*/api/v1/categories', () =>

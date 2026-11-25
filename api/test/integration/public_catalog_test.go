@@ -59,8 +59,8 @@ func TestPublicCatalog(t *testing.T) {
 	// A API nunca aceita um lote já fora de validade, por isso vão direto à
 	// base de dados.
 	for _, stmt := range []string{
-		"INSERT INTO stock_lots (product_id, qty_received, qty_left, harvested_on, expires_on) VALUES ($1, 50, 50, $2::date - 10, $2::date - 1)",
-		"INSERT INTO stock_lots (product_id, qty_received, qty_left, harvested_on, expires_on) VALUES ($1, 50, 0, $2::date, $2::date + 30)",
+		"INSERT INTO stock_lots (product_id, unit, qty_received, qty_left, harvested_on, expires_on) VALUES ($1, 'kg', 50, 50, $2::date - 10, $2::date - 1)",
+		"INSERT INTO stock_lots (product_id, unit, qty_received, qty_left, harvested_on, expires_on) VALUES ($1, 'kg', 50, 0, $2::date, $2::date + 30)",
 	} {
 		if _, err := e.pool.Exec(context.Background(), stmt, abacate, lisbonDay(0)); err != nil {
 			t.Fatal(err)

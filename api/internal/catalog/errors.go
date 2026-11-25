@@ -12,6 +12,10 @@ var (
 	ErrInUse = errors.New("em uso")
 	// ErrVersionMismatch: o produto mudou desde que o cliente o leu (412).
 	ErrVersionMismatch = errors.New("o produto foi alterado entretanto")
+	// ErrUnitLocked: o produto já tem lotes de stock, cujas quantidades estão
+	// na unidade atual. Mudá-la reinterpretava-as (12,5 kg passavam a 12,5
+	// unidades), por isso não muda (409).
+	ErrUnitLocked = errors.New("a unidade de um produto com stock não muda")
 
 	// ErrUnsupportedImage: não é JPEG, PNG nem WebP (verificado pelo conteúdo).
 	ErrUnsupportedImage = errors.New("formato de imagem não suportado")

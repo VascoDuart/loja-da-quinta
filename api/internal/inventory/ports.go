@@ -11,7 +11,11 @@ import (
 type Repo interface {
 	// CreateLot grava o lote e o movimento de entrada (com quem o registou)
 	// na mesma transação. ErrProductNotFound se o produto não existir.
-	CreateLot(ctx context.Context, in NewLot, userID uuid.UUID) (Lot, error)
+	// O lote guarda unit, a unidade em que a quantidade foi validada: se a
+	// do produto já não for essa (ou o produto já não existir), errProductKey.
+	CreateLot(ctx context.Context, in NewLot, unit string, userID uuid.UUID) (Lot, error)
+	// HasLots diz se o produto tem algum lote, com ou sem stock.
+	HasLots(ctx context.Context, productID uuid.UUID) (bool, error)
 	// StockMilli devolve, para os produtos pedidos que têm stock, a soma do
 	// que resta nos lotes com validade a partir de today. Os produtos sem
 	// stock não aparecem.

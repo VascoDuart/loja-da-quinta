@@ -21,7 +21,7 @@ func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore { return &PostgresStore
 
 var _ Repo = (*PostgresStore)(nil)
 
-func (s *PostgresStore) CreateLot(ctx context.Context, in NewLot, userID uuid.UUID) (Lot, error) {
+func (s *PostgresStore) CreateLot(ctx context.Context, in NewLot, unit string, userID uuid.UUID) (Lot, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return Lot{}, fmt.Errorf("iniciar a transação: %w", err)
@@ -30,13 +30,16 @@ func (s *PostgresStore) CreateLot(ctx context.Context, in NewLot, userID uuid.UU
 	q := sqlcgen.New(tx)
 
 	r, err := q.InsertLot(ctx, sqlcgen.InsertLotParams{
-		ProductID: in.ProductID, QuantityMilli: in.QuantityMilli,
+		ProductID: in.ProductID, Unit: unit, QuantityMilli: in.QuantityMilli,
 		HarvestedOn: in.HarvestedOn, ExpiresOn: in.ExpiresOn,
 	})
 	if err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) && pgErr.Code == "23503" { // o produto foi apagado entretanto
-			return Lot{}, ErrProductNotFound
+		if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+			// A chave (product_id, unit) falhou: o produto foi apagado ou
+			// mudou de unidade entretanto. Quem distingue é o serviço,
+			// perguntando ao catálogo.
+			return Lot{}, errProductKey
 		}
 		return Lot{}, fmt.Errorf("gravar o lote: %w", err)
 	}
@@ -49,9 +52,17 @@ func (s *PostgresStore) CreateLot(ctx context.Context, in NewLot, userID uuid.UU
 		return Lot{}, fmt.Errorf("gravar o lote: %w", err)
 	}
 	return Lot{
-		ID: r.ID, ProductID: r.ProductID, QtyReceivedMilli: r.QtyReceivedMilli, QtyLeftMilli: r.QtyLeftMilli,
+		ID: r.ID, ProductID: r.ProductID, Unit: r.Unit, QtyReceivedMilli: r.QtyReceivedMilli, QtyLeftMilli: r.QtyLeftMilli,
 		HarvestedOn: r.HarvestedOn, ExpiresOn: r.ExpiresOn, CreatedAt: r.CreatedAt,
 	}, nil
+}
+
+func (s *PostgresStore) HasLots(ctx context.Context, productID uuid.UUID) (bool, error) {
+	has, err := sqlcgen.New(s.pool).ProductHasLots(ctx, productID)
+	if err != nil {
+		return false, fmt.Errorf("ver os lotes do produto: %w", err)
+	}
+	return has, nil
 }
 
 func (s *PostgresStore) StockMilli(ctx context.Context, productIDs []uuid.UUID, today time.Time) (map[uuid.UUID]int64, error) {

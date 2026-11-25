@@ -48,6 +48,8 @@ func (f *fakeStock) StockMilli(_ context.Context, ids []uuid.UUID) (map[uuid.UUI
 	return f.levels, f.err
 }
 
+func (f *fakeStock) HasLots(context.Context, uuid.UUID) (bool, error) { return false, nil }
+
 func publicProduct(name string, low int64) Product {
 	return Product{
 		ProductInput: ProductInput{Name: name, Unit: UnitKg, PriceCents: 250, VatRate: 6, SeasonMonths: []int{1}, LowStockMilli: low, IsPublic: true, Active: true},

@@ -88,6 +88,16 @@ type fakeRepo struct {
 	Repo
 	created []ProductInput
 	updated time.Time
+	// current é o produto gravado (GetProduct); por omissão, validInput.
+	current *Product
+	saves   int
+}
+
+func (f *fakeRepo) GetProduct(_ context.Context, id uuid.UUID) (Product, error) {
+	if f.current == nil {
+		return Product{ProductInput: validInput(), ID: id}, nil
+	}
+	return *f.current, nil
 }
 
 func (f *fakeRepo) CreateProduct(_ context.Context, in ProductInput) (Product, error) {
@@ -97,7 +107,65 @@ func (f *fakeRepo) CreateProduct(_ context.Context, in ProductInput) (Product, e
 
 func (f *fakeRepo) UpdateProduct(_ context.Context, _ uuid.UUID, expected time.Time, in ProductInput) (Product, error) {
 	f.updated = expected
+	f.saves++
 	return Product{ProductInput: in}, nil
+}
+
+// lotsOf é um LotChecker com os produtos que têm lotes.
+type lotsOf map[uuid.UUID]bool
+
+func (l lotsOf) StockMilli(context.Context, []uuid.UUID) (map[uuid.UUID]int64, error) {
+	return map[uuid.UUID]int64{}, nil
+}
+
+func (l lotsOf) HasLots(_ context.Context, id uuid.UUID) (bool, error) { return l[id], nil }
+
+// A unidade de um produto com lotes não muda: as quantidades dos lotes estão
+// nela (12,5 kg passavam a 12,5 unidades).
+func TestUnitOfAProductWithLotsDoesNotChange(t *testing.T) {
+	gestor := identity.Principal{UserID: uuid.New(), Role: identity.RoleGestor}
+	withLots, without := uuid.New(), uuid.New()
+	version := `"1764000000000000"`
+	inUnits := validInput()
+	inUnits.Unit, inUnits.LowStockMilli = UnitUnit, 2000
+
+	cases := []struct {
+		name    string
+		id      uuid.UUID
+		in      ProductInput
+		wantErr error
+	}{
+		{"com lotes, mudar de kg para un", withLots, inUnits, ErrUnitLocked},
+		{"com lotes, mesma unidade (mudar o preço)", withLots, validInput(), nil},
+		{"sem lotes, mudar de kg para un", without, inUnits, nil},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			repo := &fakeRepo{}
+			svc := NewService(repo, &fakeImages{}).WithStock(lotsOf{withLots: true})
+			_, err := svc.UpdateProduct(context.Background(), gestor, c.id, version, c.in)
+			if !errors.Is(err, c.wantErr) {
+				t.Fatalf("queria %v, deu %v", c.wantErr, err)
+			}
+			if wantSaves := map[bool]int{true: 0, false: 1}[c.wantErr != nil]; repo.saves != wantSaves {
+				t.Errorf("gravações: queria %d, deu %d", wantSaves, repo.saves)
+			}
+		})
+	}
+
+	t.Run("produto inexistente: 404, sem perguntar ao stock", func(t *testing.T) {
+		repo := &notFoundRepo{}
+		svc := NewService(repo, &fakeImages{}).WithStock(lotsOf{})
+		if _, err := svc.UpdateProduct(context.Background(), gestor, uuid.New(), version, inUnits); !errors.Is(err, ErrNotFound) {
+			t.Errorf("queria ErrNotFound, deu %v", err)
+		}
+	})
+}
+
+type notFoundRepo struct{ Repo }
+
+func (notFoundRepo) GetProduct(context.Context, uuid.UUID) (Product, error) {
+	return Product{}, ErrNotFound
 }
 
 type fakeImages struct {

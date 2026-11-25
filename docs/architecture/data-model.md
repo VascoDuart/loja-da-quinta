@@ -75,7 +75,8 @@ erDiagram
     }
     stock_lots {
         uuid id PK
-        uuid product_id FK "RESTRICT"
+        uuid product_id FK "RESTRICT, com unit"
+        text unit FK "a do produto; não muda com lotes"
         numeric qty_received "12,3 CHECK > 0"
         numeric qty_left "12,3 CHECK >= 0"
         date harvested_on
@@ -117,6 +118,7 @@ erDiagram
 
 - **Stock disponível** é a soma de `qty_left` dos lotes **dentro da validade** (`expires_on` a partir de hoje, na hora de Lisboa; um lote que expira hoje ainda conta). Um lote fora de validade não se pode vender, por isso não conta para o catálogo público nem, mais tarde, para as vendas. Cada alteração deixa um registo em `stock_movements`, que funciona como histórico completo ([ADR-0010](../adr/0010-stock-por-lotes-fefo.md)).
 - **Uma entrada de stock é um lote e um movimento `entrada`, gravados na mesma transação**, com o utilizador que a registou (`POST /stock/lots`). A API recusa (422) quantidades que não são positivas, casas decimais em unidades, molhos e dúzias, produtos inexistentes ou desativados, colheitas no futuro e validades anteriores à colheita ou a hoje.
+- **A unidade de um produto com lotes não muda.** As quantidades dos lotes estão na unidade do produto: passar de kg para unidades leria 12,5 kg como 12,5 unidades. O catálogo recusa a mudança (`409`) perguntando ao `inventory` se o produto tem lotes (porta `catalog.LotChecker`). Como entre essa pergunta e a gravação pode entrar um lote, a garantia está na base de dados: cada lote guarda a unidade em que a quantidade foi validada, com uma chave estrangeira composta `(product_id, unit) → products (id, unit)` com `ON UPDATE RESTRICT` (migração 00005). Com `(id, unit)` numa chave única, mudar a unidade é uma atualização de chave e bloqueia a linha do produto com `FOR UPDATE`, que choca com o `FOR KEY SHARE` de quem insere um lote: quem chega em segundo espera pelo outro e é recusado (a mudança de unidade com `409`, ou o lote com `409` se a unidade mudou enquanto era registado). Editar o preço, o nome ou o resto do produto não toca na chave e não bloqueia as entradas de stock.
 - **A quantidade de um movimento tem sinal:** entra no lote (`entrada`, `anulacao`) ou sai dele (`venda`, `quebra`); um `ajuste` pode ir para os dois lados. Um `CHECK` garante o sinal de cada tipo. A coluna `sale_id` chega com a tabela `sales` (#15), já com a chave estrangeira.
 - **Movimentos só de acrescento:** um trigger recusa `UPDATE`, `DELETE` e `TRUNCATE` em `stock_movements` a toda a gente, incluindo o dono das tabelas, e o papel `app` só tem `INSERT` e `SELECT` (a migração tira-lhe o resto). Corrigir um engano é registar outro movimento.
 - **Dinheiro em cêntimos inteiros** e quantidades em `numeric(12,3)` para pesos em kg e volumes em litros ([ADR-0009](../adr/0009-dinheiro-em-centimos.md)).

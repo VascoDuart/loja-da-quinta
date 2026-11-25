@@ -51,6 +51,11 @@ export type createStockLotResponse403 = {
   status: 403
 }
 
+export type createStockLotResponse409 = {
+  data: ProblemResponse
+  status: 409
+}
+
 export type createStockLotResponse422 = {
   data: ProblemResponse
   status: 422
@@ -59,7 +64,7 @@ export type createStockLotResponse422 = {
 export type createStockLotResponseSuccess = (createStockLotResponse201) & {
   headers: Headers;
 };
-export type createStockLotResponseError = (createStockLotResponse400 | createStockLotResponse401 | createStockLotResponse403 | createStockLotResponse422) & {
+export type createStockLotResponseError = (createStockLotResponse400 | createStockLotResponse401 | createStockLotResponse403 | createStockLotResponse409 | createStockLotResponse422) & {
   headers: Headers;
 };
 
@@ -79,7 +84,8 @@ export const getCreateStockLotUrl = () => {
  * (12500 = 12,5 kg); un, molho e duzia só aceitam múltiplos de 1000. O
  * produto tem de existir e estar ativo. A colheita não pode ser no
  * futuro e a validade não pode ser anterior à colheita nem a hoje (hora
- * de Lisboa).
+ * de Lisboa). O lote guarda a unidade do produto; se ela mudar enquanto
+ * se regista, responde 409 e não grava.
  * @summary Regista uma entrada de stock (um lote)
  */
 export const createStockLot = async (stockLotInput: StockLotInput, options?: Parameters<typeof apiFetch>[1]): Promise<createStockLotResponse> => {

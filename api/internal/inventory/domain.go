@@ -44,6 +44,9 @@ func asDay(t time.Time) time.Time {
 type Product struct {
 	ID   uuid.UUID
 	Name string
+	// Unit é a unidade do produto (kg, l, un, molho, duzia). Cada lote guarda
+	// a unidade em que a quantidade foi validada.
+	Unit string
 	// Decimal: kg e litros aceitam casas decimais; as outras unidades não.
 	Decimal bool
 	Active  bool
@@ -93,6 +96,7 @@ func (in NewLot) Validate(p Product, today time.Time) error {
 type Lot struct {
 	ID               uuid.UUID
 	ProductID        uuid.UUID
+	Unit             string
 	QtyReceivedMilli int64
 	QtyLeftMilli     int64
 	HarvestedOn      time.Time

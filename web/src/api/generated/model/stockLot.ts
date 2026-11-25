@@ -7,10 +7,12 @@
  *
  * OpenAPI spec version: 0.1.0
  */
+import type { Unit } from './unit';
 
 export interface StockLot {
   id: string;
   productId: string;
+  unit: Unit;
   /** Quantidade que entrou, em milésimos da unidade. */
   quantityReceivedMilli: number;
   /** Quantidade que ainda resta no lote, em milésimos da unidade. */

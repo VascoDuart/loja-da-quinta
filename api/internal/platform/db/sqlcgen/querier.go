@@ -34,6 +34,8 @@ type Querier interface {
 	// As quantidades saem e entram em milésimos inteiros (…_milli), como o
 	// dinheiro em cêntimos (ADR-0009): nunca há vírgula flutuante entre a base de
 	// dados e a API.
+	// A unidade é a do produto quando a quantidade foi validada: se entretanto
+	// mudou, a chave estrangeira (product_id, unit) recusa o lote (00005).
 	InsertLot(ctx context.Context, arg InsertLotParams) (InsertLotRow, error)
 	InsertMovement(ctx context.Context, arg InsertMovementParams) error
 	InsertProductImage(ctx context.Context, arg InsertProductImageParams) error
@@ -56,6 +58,8 @@ type Querier interface {
 	// não deixam versões misturadas.
 	LockProduct(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
 	ProductExists(ctx context.Context, id uuid.UUID) (bool, error)
+	// Se o produto tem algum lote (com ou sem stock): a unidade dele já não muda.
+	ProductHasLots(ctx context.Context, productID uuid.UUID) (bool, error)
 	RenameCategory(ctx context.Context, arg RenameCategoryParams) (Category, error)
 	RevokeRefreshFamily(ctx context.Context, familyID uuid.UUID) (int64, error)
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error

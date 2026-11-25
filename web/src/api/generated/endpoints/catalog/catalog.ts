@@ -989,7 +989,9 @@ export const getUpdateProductUrl = (id: string,) => {
 /**
  * Exige If-Match com a versão lida (o ETag, ou o campo version). Se
  * outra pessoa mudou o produto entretanto, responde 412 e não grava:
- * nenhuma alteração se perde sem aviso.
+ * nenhuma alteração se perde sem aviso. A unidade de um produto que já
+ * tem lotes de stock não muda (409): as quantidades dos lotes estão
+ * nessa unidade.
  * @summary Substitui os dados de um produto
  */
 export const updateProduct = async (id: string,

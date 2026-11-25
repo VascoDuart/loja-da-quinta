@@ -26,6 +26,7 @@ const (
 	msgProductTaken     = "Já existe um produto com este nome."
 	msgCategoryInUse    = "Esta categoria tem produtos. Muda-os de categoria antes de a apagar."
 	msgProductInUse     = "Este produto já tem histórico (stock ou vendas) e não se pode apagar. Desativa-o."
+	msgUnitLocked       = "Este produto já tem lotes de stock, registados nesta unidade: a unidade não se pode mudar. Se precisas de outra unidade, cria um produto novo e desativa este."
 	msgVersion          = "Outra pessoa alterou este produto entretanto. Recarrega para veres a versão atual."
 	msgUnsupported      = "O ficheiro tem de ser uma imagem JPEG, PNG ou WebP."
 	msgTooLarge         = "A imagem é demasiado grande: no máximo 5 MB e 40 megapíxeis."
@@ -150,6 +151,8 @@ func (h *Endpoints) UpdateProduct(ctx context.Context, req gen.UpdateProductRequ
 		return gen.UpdateProduct412ApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusPreconditionFailed, msgVersion)), nil
 	case errors.Is(err, ErrNameTaken):
 		return gen.UpdateProduct409ApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusConflict, msgProductTaken)), nil
+	case errors.Is(err, ErrUnitLocked):
+		return gen.UpdateProduct409ApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusConflict, msgUnitLocked)), nil
 	case errors.As(err, &ve):
 		return gen.UpdateProduct422ApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusUnprocessableEntity, ve.Message)), nil
 	case err != nil:

@@ -16,7 +16,8 @@ import * as zod from 'zod';
  * (12500 = 12,5 kg); un, molho e duzia só aceitam múltiplos de 1000. O
  * produto tem de existir e estar ativo. A colheita não pode ser no
  * futuro e a validade não pode ser anterior à colheita nem a hoje (hora
- * de Lisboa).
+ * de Lisboa). O lote guarda a unidade do produto; se ela mudar enquanto
+ * se regista, responde 409 e não grava.
  * @summary Regista uma entrada de stock (um lote)
  */
 export const createStockLotBodyQuantityMilliMax = 100000000;
@@ -33,6 +34,7 @@ export const CreateStockLotBody = zod.object({
 export const CreateStockLotResponse = zod.object({
   "id": zod.uuid(),
   "productId": zod.uuid(),
+  "unit": zod.enum(['kg', 'l', 'un', 'molho', 'duzia']).describe('kg e l aceitam casas decimais; un, molho e duzia só inteiros.'),
   "quantityReceivedMilli": zod.int().describe('Quantidade que entrou, em milésimos da unidade.'),
   "quantityLeftMilli": zod.int().describe('Quantidade que ainda resta no lote, em milésimos da unidade.'),
   "harvestedOn": zod.iso.date(),

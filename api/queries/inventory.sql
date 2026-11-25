@@ -6,10 +6,12 @@
 -- dados e a API.
 
 -- name: InsertLot :one
-INSERT INTO stock_lots (product_id, qty_received, qty_left, harvested_on, expires_on)
-VALUES (sqlc.arg(product_id), sqlc.arg(quantity_milli)::bigint::numeric / 1000,
+-- A unidade é a do produto quando a quantidade foi validada: se entretanto
+-- mudou, a chave estrangeira (product_id, unit) recusa o lote (00005).
+INSERT INTO stock_lots (product_id, unit, qty_received, qty_left, harvested_on, expires_on)
+VALUES (sqlc.arg(product_id), sqlc.arg(unit), sqlc.arg(quantity_milli)::bigint::numeric / 1000,
         sqlc.arg(quantity_milli)::bigint::numeric / 1000, sqlc.arg(harvested_on), sqlc.arg(expires_on))
-RETURNING id, product_id, (qty_received * 1000)::bigint AS qty_received_milli,
+RETURNING id, product_id, unit, (qty_received * 1000)::bigint AS qty_received_milli,
           (qty_left * 1000)::bigint AS qty_left_milli, harvested_on, expires_on, created_at;
 
 -- name: InsertMovement :exec
@@ -27,3 +29,7 @@ WHERE product_id = ANY (sqlc.arg(product_ids)::uuid[])
   AND qty_left > 0
   AND expires_on >= sqlc.arg(today)::date
 GROUP BY product_id;
+
+-- Se o produto tem algum lote (com ou sem stock): a unidade dele já não muda.
+-- name: ProductHasLots :one
+SELECT EXISTS (SELECT 1 FROM stock_lots WHERE product_id = $1);

@@ -14,15 +14,16 @@ import (
 
 const insertLot = `-- name: InsertLot :one
 
-INSERT INTO stock_lots (product_id, qty_received, qty_left, harvested_on, expires_on)
-VALUES ($1, $2::bigint::numeric / 1000,
-        $2::bigint::numeric / 1000, $3, $4)
-RETURNING id, product_id, (qty_received * 1000)::bigint AS qty_received_milli,
+INSERT INTO stock_lots (product_id, unit, qty_received, qty_left, harvested_on, expires_on)
+VALUES ($1, $2, $3::bigint::numeric / 1000,
+        $3::bigint::numeric / 1000, $4, $5)
+RETURNING id, product_id, unit, (qty_received * 1000)::bigint AS qty_received_milli,
           (qty_left * 1000)::bigint AS qty_left_milli, harvested_on, expires_on, created_at
 `
 
 type InsertLotParams struct {
 	ProductID     uuid.UUID
+	Unit          string
 	QuantityMilli int64
 	HarvestedOn   time.Time
 	ExpiresOn     time.Time
@@ -31,6 +32,7 @@ type InsertLotParams struct {
 type InsertLotRow struct {
 	ID               uuid.UUID
 	ProductID        uuid.UUID
+	Unit             string
 	QtyReceivedMilli int64
 	QtyLeftMilli     int64
 	HarvestedOn      time.Time
@@ -44,9 +46,12 @@ type InsertLotRow struct {
 // As quantidades saem e entram em milésimos inteiros (…_milli), como o
 // dinheiro em cêntimos (ADR-0009): nunca há vírgula flutuante entre a base de
 // dados e a API.
+// A unidade é a do produto quando a quantidade foi validada: se entretanto
+// mudou, a chave estrangeira (product_id, unit) recusa o lote (00005).
 func (q *Queries) InsertLot(ctx context.Context, arg InsertLotParams) (InsertLotRow, error) {
 	row := q.db.QueryRow(ctx, insertLot,
 		arg.ProductID,
+		arg.Unit,
 		arg.QuantityMilli,
 		arg.HarvestedOn,
 		arg.ExpiresOn,
@@ -55,6 +60,7 @@ func (q *Queries) InsertLot(ctx context.Context, arg InsertLotParams) (InsertLot
 	err := row.Scan(
 		&i.ID,
 		&i.ProductID,
+		&i.Unit,
 		&i.QtyReceivedMilli,
 		&i.QtyLeftMilli,
 		&i.HarvestedOn,
@@ -87,6 +93,18 @@ func (q *Queries) InsertMovement(ctx context.Context, arg InsertMovementParams) 
 		arg.Reason,
 	)
 	return err
+}
+
+const productHasLots = `-- name: ProductHasLots :one
+SELECT EXISTS (SELECT 1 FROM stock_lots WHERE product_id = $1)
+`
+
+// Se o produto tem algum lote (com ou sem stock): a unidade dele já não muda.
+func (q *Queries) ProductHasLots(ctx context.Context, productID uuid.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, productHasLots, productID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const stockByProduct = `-- name: StockByProduct :many

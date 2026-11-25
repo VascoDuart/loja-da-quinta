@@ -63,6 +63,7 @@ type StockLot struct {
 	ExpiresOn   time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	Unit        string
 }
 
 type StockMovement struct {

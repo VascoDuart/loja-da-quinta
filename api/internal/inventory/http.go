@@ -21,6 +21,7 @@ func NewEndpoints(svc *Service) *Endpoints { return &Endpoints{svc: svc} }
 const (
 	msgForbidden       = "Não tens permissão para registar stock."
 	msgProductNotFound = "O produto escolhido não existe."
+	msgUnitChanged     = "A unidade deste produto mudou enquanto registavas a entrada. Recarrega a página, confirma a quantidade e regista de novo."
 )
 
 func (h *Endpoints) CreateStockLot(ctx context.Context, req gen.CreateStockLotRequestObject) (gen.CreateStockLotResponseObject, error) {
@@ -33,6 +34,8 @@ func (h *Endpoints) CreateStockLot(ctx context.Context, req gen.CreateStockLotRe
 	switch {
 	case errors.Is(err, identity.ErrForbidden):
 		return gen.CreateStockLot403ApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusForbidden, msgForbidden)), nil
+	case errors.Is(err, ErrUnitChanged):
+		return gen.CreateStockLot409ApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusConflict, msgUnitChanged)), nil
 	case errors.Is(err, ErrProductNotFound):
 		return gen.CreateStockLot422ApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusUnprocessableEntity, msgProductNotFound)), nil
 	case errors.As(err, &ve):
@@ -45,7 +48,7 @@ func (h *Endpoints) CreateStockLot(ctx context.Context, req gen.CreateStockLotRe
 
 func toStockLot(l Lot) gen.StockLot {
 	return gen.StockLot{
-		Id: l.ID, ProductId: l.ProductID,
+		Id: l.ID, ProductId: l.ProductID, Unit: gen.Unit(l.Unit),
 		QuantityReceivedMilli: l.QtyReceivedMilli, QuantityLeftMilli: l.QtyLeftMilli,
 		HarvestedOn: openapi_types.Date{Time: l.HarvestedOn}, ExpiresOn: openapi_types.Date{Time: l.ExpiresOn},
 		CreatedAt: l.CreatedAt,
