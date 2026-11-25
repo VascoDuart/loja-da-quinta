@@ -74,6 +74,10 @@ func NewHandler(cfg config.Config, log *slog.Logger, api gen.StrictServerInterfa
 			if status == 0 {
 				status = http.StatusBadRequest
 			}
+			if status == http.StatusNotFound || status == http.StatusMethodNotAllowed {
+				httpx.WriteProblem(w, r, http.StatusNotFound, "Este endereço não existe.")
+				return
+			}
 			log.InfoContext(r.Context(), "pedido recusado pela validação OpenAPI", "err", err)
 			httpx.WriteProblem(w, r, status, "O pedido não cumpre o contrato da API.")
 		},
@@ -91,9 +95,8 @@ func NewHandler(cfg config.Config, log *slog.Logger, api gen.StrictServerInterfa
 
 	mux := http.NewServeMux()
 	gen.HandlerWithOptions(strict, gen.StdHTTPServerOptions{
-		BaseURL:     BasePath,
-		BaseRouter:  mux,
-		Middlewares: []gen.MiddlewareFunc{validate},
+		BaseURL:    BasePath,
+		BaseRouter: mux,
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
 			httpx.WriteProblem(w, r, http.StatusBadRequest, "Parâmetros inválidos.")
 		},
@@ -118,6 +121,11 @@ func NewHandler(cfg config.Config, log *slog.Logger, api gen.StrictServerInterfa
 		mw.MaxBody(cfg.MaxBodyBytes, uploadLimits),
 		mw.Timeout(cfg.RequestTimeout, uploadLimits),
 		authenticate,
+		// Fora do router gerado, e não por rota: o código gerado lê os
+		// parâmetros (cabeçalhos, query) antes dos middlewares de cada rota, e
+		// um pedido sem sessão recebia 400 a revelar o formato do endpoint em
+		// vez de 401. Aqui a segurança é sempre a primeira verificação.
+		validate,
 	), nil
 }
 
