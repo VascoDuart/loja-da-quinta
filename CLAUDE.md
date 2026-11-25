@@ -29,15 +29,16 @@ App de gestão de uma loja de quinta (projeto de portefólio). Monólito modular
 api/            Go 1.26: cmd/{api,migrate,createuser,jwtkey}, internal/<modulo>/, internal/platform/, migrations/, queries/, test/integration/
 web/            Vite + React 19 + TS: src/features/<página>/, src/shared/{ui,lib,theme}, src/api/ (orval gerado + http.ts), e2e/ (Playwright)
 openapi/        contrato único (ADR-0003)
-docs/           requisitos, arquitetura, ADR 0001-0014, segurança (controls, authz-matrix, ASVS, threat-model), design system
+docs/           requisitos, arquitetura, ADR (índice em docs/adr/README.md), segurança (controls, authz-matrix, ASVS, threat-model), design system
 infra/          papéis PostgreSQL (local e Neon)
-scripts/        automação (finish-issue.sh)
+scripts/        automação (finish-issue.sh, stock-alerts.sh)
 ```
 
 ## Padrões do código
 
 - **Módulo Go** (`internal/<modulo>/`): `domain.go` (sem HTTP nem SQL; depguard), `errors.go`, `ports.go`, `service.go`, `postgres.go` (sqlc), `http.go` (tipo `Endpoints`, juntado em `internal/httpapi/server.go` por alias). Composição em `internal/app/app.go` (partilhada com os testes de integração). Um módulo nunca lê as tabelas de outro.
 - **Autorização:** os papéis de cada operação vão na OpenAPI (`security: - bearerAuth: [gestor]`); omissão = ninguém entra. Operação pública = `security: []` **e** entrada em `publicOperations` (`internal/auth/http_test.go`). Os serviços voltam a verificar o papel (`requireGestor`).
+- **Jobs agendados** (ADR-0015): sem goroutines agendadas, que a API adormece. Um workflow chama um endpoint com `security: - jobToken: []` (cabeçalho `X-Job-Token`), que também tem de estar em `jobOperations` (mesmo teste) e ser idempotente.
 - **Erros:** `problems.New(ctx, status, detalhe)`; detalhes escritos para pessoas, nunca internos. `ValidationError` → 422; regras do contrato → 400 (validador).
 - **Dinheiro em cêntimos e quantidades em milésimos inteiros** na API (`…Cents`, `…Milli`, ADR-0009). Conversões de texto só na fronteira (`web/src/shared/lib/format.ts`).
 - **Concorrência otimista** com `ETag`/`If-Match` (campo `version`) onde dois gestores possam editar o mesmo registo.
@@ -57,6 +58,7 @@ Cada comportamento é testado **numa só camada**, a mais barata que o prova. Re
 - **Autorização gerada:** `test/integration/authz_spec_test.go` lê a OpenAPI e prova, para **cada** operação, que sem sessão dá 401 e que cada papel fora da lista do `bearerAuth` dá 403. Um endpoint novo fica coberto sem escrever nada; nos testes do issue só entra o caso positivo.
 - **Um teste a pensar num risco concreto vale sempre a pena** (corrida, segurança, perda de dados, dinheiro). Foram esses que apanharam os bugs reais deste projeto.
 - Os E2E correm contra staging em cada merge na `dev`: têm de ser **idempotentes** (reutilizar contas e dados de teste por dispositivo, nunca públicos, sem acumular) e esperar pelos dados antes de decidir.
+- Um token de teste que pareça um segredo faz falhar o gitleaks, mesmo que se corrija num commit seguinte (conta o histórico do PR): usar valores repetidos (`strings.Repeat("j", 40)`, `'x'.repeat(40)`).
 
 ## Testes: o que correr
 
@@ -83,4 +85,8 @@ cd web && npx playwright test e2e/<ficheiro>.spec.ts --project=desktop        # 
 
 ## Staging
 
-<https://loja-da-quinta-staging.vercel.app> · API `loja-da-quinta-api-staging.onrender.com` (Render, Auto-Deploy desligado, deploy por hook) · Neon branch `staging`. O workflow `deploy-staging.yml` aplica as migrações, cria as contas E2E, faz o deploy e corre os E2E. Variáveis na Render: `APP_ENV`, `DATABASE_URL`, `TRUSTED_PROXY_HOPS`, `JWT_SIGNING_KEY`.
+<https://loja-da-quinta-staging.vercel.app> · API `loja-da-quinta-api-staging.onrender.com` (Render, Auto-Deploy desligado, deploy por hook) · Neon branch `staging`. O workflow `deploy-staging.yml` aplica as migrações, cria as contas E2E, faz o deploy e corre os E2E. Variáveis na Render: `APP_ENV`, `DATABASE_URL`, `TRUSTED_PROXY_HOPS`, `JWT_SIGNING_KEY`, `JOBS_TOKEN`; opcionais para os alertas por e-mail: `RESEND_API_KEY`, `ALERTS_TO`, `ALERTS_FROM`.
+
+- **Uma variável obrigatória nova tem de estar na Render antes do merge**, senão a API recusa arrancar e o deploy falha.
+- O `JOBS_TOKEN` tem o mesmo valor que o segredo `STAGING_JOBS_TOKEN` do GitHub.
+- O workflow `stock-alerts.yml` (agendamento e `workflow_dispatch`) só funciona depois de estar na `main`. Até lá, `scripts/stock-alerts.sh` corre o job à mão.
