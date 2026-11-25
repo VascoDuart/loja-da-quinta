@@ -73,6 +73,12 @@ export const routes: RouteObject[] = [
         handle: { title: 'Stock', roles: todos, nav: true } satisfies RouteHandle,
       },
       {
+        // Fora do menu: chega-se pelo ecrã de stock (o link Stock fica ativo).
+        path: 'stock/ajustes',
+        lazy: page(() => import('../features/stock/AjustesPage')),
+        handle: { title: 'Ajustes e quebras', roles: soGestor } satisfies RouteHandle,
+      },
+      {
         path: 'produtos',
         lazy: page(() => import('../features/produtos/ProdutosPage')),
         handle: { title: 'Produtos', roles: soGestor, nav: true } satisfies RouteHandle,

@@ -104,9 +104,15 @@ type fakeRepo struct {
 	// de dados, quando o produto mudou ou desapareceu entretanto.
 	keyErr bool
 	lotsOf map[uuid.UUID]bool
-	asked  []uuid.UUID
-	today  time.Time
-	levels map[uuid.UUID]int64
+	// lots são os lotes gravados; Move aplica-lhes os movimentos como o
+	// PostgresStore (Lot.LeftAfter), e moves guarda os que passaram.
+	lots      map[uuid.UUID]Lot
+	moves     []Movement
+	listedFor uuid.UUID
+	listedDay time.Time
+	asked     []uuid.UUID
+	today     time.Time
+	levels    map[uuid.UUID]int64
 }
 
 func (f *fakeRepo) CreateLot(_ context.Context, in NewLot, unit string, userID uuid.UUID) (Lot, error) {
@@ -120,6 +126,34 @@ func (f *fakeRepo) CreateLot(_ context.Context, in NewLot, unit string, userID u
 }
 
 func (f *fakeRepo) HasLots(_ context.Context, id uuid.UUID) (bool, error) { return f.lotsOf[id], nil }
+
+func (f *fakeRepo) Lot(_ context.Context, id uuid.UUID) (Lot, error) {
+	l, ok := f.lots[id]
+	if !ok {
+		return Lot{}, ErrLotNotFound
+	}
+	return l, nil
+}
+
+func (f *fakeRepo) ListLots(_ context.Context, productID uuid.UUID, today time.Time) ([]Lot, error) {
+	f.listedFor, f.listedDay = productID, today
+	return nil, nil
+}
+
+func (f *fakeRepo) Move(_ context.Context, m Movement) (Lot, RecordedMovement, error) {
+	l, ok := f.lots[m.LotID]
+	if !ok {
+		return Lot{}, RecordedMovement{}, ErrLotNotFound
+	}
+	left, err := l.LeftAfter(m.QuantityMilli)
+	if err != nil {
+		return Lot{}, RecordedMovement{}, err
+	}
+	l.QtyLeftMilli = left
+	f.lots[m.LotID] = l
+	f.moves = append(f.moves, m)
+	return l, RecordedMovement{ID: int64(len(f.moves)), LotID: l.ID, Type: m.Type, QuantityMilli: m.QuantityMilli, Reason: m.Reason}, nil
+}
 
 func (f *fakeRepo) StockMilli(_ context.Context, ids []uuid.UUID, today time.Time) (map[uuid.UUID]int64, error) {
 	f.asked, f.today = ids, today

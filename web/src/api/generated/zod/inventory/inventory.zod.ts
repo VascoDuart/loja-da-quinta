@@ -11,6 +11,30 @@ import * as zod from 'zod';
 
 
 /**
+ * Os lotes do produto que ainda têm stock (também os fora de validade,
+ * para se poderem dar como quebra) ou que ainda estão dentro da
+ * validade (um lote que ficou a 0 por engano ainda se pode corrigir).
+ * Ordenados por validade, como sai o stock (FEFO), no máximo 200. A
+ * consulta completa do stock e os alertas chegam com GET /stock (#14).
+ * @summary Lotes de um produto
+ */
+export const ListStockLotsQueryParams = zod.object({
+  "productId": zod.uuid()
+})
+
+export const ListStockLotsResponseItem = zod.object({
+  "id": zod.uuid(),
+  "productId": zod.uuid(),
+  "unit": zod.enum(['kg', 'l', 'un', 'molho', 'duzia']).describe('kg e l aceitam casas decimais; un, molho e duzia só inteiros.'),
+  "quantityReceivedMilli": zod.int().describe('Quantidade que entrou, em milésimos da unidade.'),
+  "quantityLeftMilli": zod.int().describe('Quantidade que ainda resta no lote, em milésimos da unidade.'),
+  "harvestedOn": zod.iso.date(),
+  "expiresOn": zod.iso.date(),
+  "createdAt": zod.iso.datetime({"offset":true})
+})
+export const ListStockLotsResponse = zod.array(ListStockLotsResponseItem)
+
+/**
  * Grava o lote e o movimento de entrada, com quem o registou, na mesma
  * transação. A quantidade vem em milésimos da unidade do produto
  * (12500 = 12,5 kg); un, molho e duzia só aceitam múltiplos de 1000. O
@@ -40,5 +64,49 @@ export const CreateStockLotResponse = zod.object({
   "harvestedOn": zod.iso.date(),
   "expiresOn": zod.iso.date(),
   "createdAt": zod.iso.datetime({"offset":true})
+})
+
+/**
+ * Só o gestor. Um ajuste corrige o stock de um lote para mais ou para
+ * menos (a quantidade tem sinal); uma quebra tira stock (quantidade
+ * negativa). O motivo é obrigatório. Na mesma transação, bloqueia o
+ * lote, atualiza o que resta e grava o movimento, com quem o fez. O
+ * stock de um lote nunca fica negativo, nem com dois pedidos ao mesmo
+ * tempo: se não houver que chegue, responde 409 e não grava nada.
+ * @summary Regista um ajuste ou uma quebra num lote
+ */
+export const createStockAdjustmentBodyQuantityMilliMin = -100000000;
+export const createStockAdjustmentBodyQuantityMilliMax = 100000000;
+
+export const createStockAdjustmentBodyReasonMax = 500;
+
+
+
+export const CreateStockAdjustmentBody = zod.object({
+  "lotId": zod.uuid(),
+  "type": zod.enum(['ajuste', 'quebra']).describe('ajuste corrige para mais ou para menos; quebra é stock que se estragou ou perdeu (sai do lote).'),
+  "quantityMilli": zod.int().min(createStockAdjustmentBodyQuantityMilliMin).max(createStockAdjustmentBodyQuantityMilliMax).describe('Quantidade com sinal, em milésimos da unidade do lote (-1500 = sai 1,5 kg). Nunca 0; numa quebra, negativa. Para un, molho e duzia, múltiplo de 1000.'),
+  "reason": zod.string().min(1).max(createStockAdjustmentBodyReasonMax).describe('Porquê (por exemplo "caixa caiu", "contagem de inventário"). Obrigatório; os espaços nas pontas não contam.')
+})
+
+export const CreateStockAdjustmentResponse = zod.object({
+  "movement": zod.object({
+  "id": zod.int(),
+  "lotId": zod.uuid(),
+  "type": zod.enum(['ajuste', 'quebra']).describe('ajuste corrige para mais ou para menos; quebra é stock que se estragou ou perdeu (sai do lote).'),
+  "quantityMilli": zod.int().describe('Quantidade com sinal, em milésimos da unidade do lote.'),
+  "reason": zod.string(),
+  "createdAt": zod.iso.datetime({"offset":true})
+}),
+  "lot": zod.object({
+  "id": zod.uuid(),
+  "productId": zod.uuid(),
+  "unit": zod.enum(['kg', 'l', 'un', 'molho', 'duzia']).describe('kg e l aceitam casas decimais; un, molho e duzia só inteiros.'),
+  "quantityReceivedMilli": zod.int().describe('Quantidade que entrou, em milésimos da unidade.'),
+  "quantityLeftMilli": zod.int().describe('Quantidade que ainda resta no lote, em milésimos da unidade.'),
+  "harvestedOn": zod.iso.date(),
+  "expiresOn": zod.iso.date(),
+  "createdAt": zod.iso.datetime({"offset":true})
+})
 })
 

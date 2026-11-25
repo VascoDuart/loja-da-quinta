@@ -1,4 +1,5 @@
 import { type FormEvent, useRef, useState } from 'react'
+import { Link } from 'react-router'
 
 import { useListProducts } from '../../api/generated/endpoints/catalog/catalog'
 import { createStockLot } from '../../api/generated/endpoints/inventory/inventory'
@@ -6,6 +7,7 @@ import type { Product, StockLot, Unit } from '../../api/generated/model'
 import { errorMessage } from '../../api/http'
 import { formatDate, formatQuantity, lisbonToday, parseQuantityToMilli } from '../../shared/lib/format'
 import { Alert, Button, SelectField, TextField } from '../../shared/ui/ui'
+import { useSession } from '../auth/session'
 import './StockPage.css'
 
 const unitShort: Record<Unit, string> = { kg: 'kg', l: 'L', un: 'unidades', molho: 'molhos', duzia: 'dúzias' }
@@ -24,9 +26,12 @@ function describe({ lot, product }: Registered): string {
 /**
  * Entrada de stock por lotes (UC-04). A quantidade escrita é convertida em
  * milésimos aqui, na fronteira (ADR-0009). A consulta do stock e os alertas
- * chegam com o #14; os ajustes e as quebras com o #13.
+ * chegam com o #14. Os ajustes e as quebras (só o gestor) estão em
+ * /app/stock/ajustes.
  */
 export default function StockPage() {
+  const session = useSession()
+  const isGestor = session.status === 'authenticated' && session.user.role === 'gestor'
   const products = useListProducts()
   const active = products.data?.status === 200 ? products.data.data.filter((p) => p.active) : undefined
 
@@ -95,6 +100,12 @@ export default function StockPage() {
 
   return (
     <div className="stock">
+      {isGestor && (
+        <p className="stock__lead">
+          Algo se estragou ou a contagem não bate certo?{' '}
+          <Link to="/app/stock/ajustes">Registar um ajuste ou uma quebra</Link>
+        </p>
+      )}
       <section className="stock__card" aria-labelledby="entrada-titulo">
         <h2 id="entrada-titulo" className="stock__title">
           Registar entrada

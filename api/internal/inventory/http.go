@@ -20,6 +20,8 @@ func NewEndpoints(svc *Service) *Endpoints { return &Endpoints{svc: svc} }
 
 const (
 	msgForbidden       = "Não tens permissão para registar stock."
+	msgForbiddenAdjust = "Só o gestor pode registar ajustes e quebras."
+	msgLotNotFound     = "Este lote não existe."
 	msgProductNotFound = "O produto escolhido não existe."
 	msgUnitChanged     = "A unidade deste produto mudou enquanto registavas a entrada. Recarrega a página, confirma a quantidade e regista de novo."
 )
@@ -44,6 +46,61 @@ func (h *Endpoints) CreateStockLot(ctx context.Context, req gen.CreateStockLotRe
 		return nil, err
 	}
 	return gen.CreateStockLot201JSONResponse(toStockLot(lot)), nil
+}
+
+func (h *Endpoints) CreateStockAdjustment(ctx context.Context, req gen.CreateStockAdjustmentRequestObject) (gen.CreateStockAdjustmentResponseObject, error) {
+	b := req.Body
+	lot, mv, err := h.svc.Adjust(ctx, actor(ctx), Adjustment{
+		LotID: b.LotId, Type: MovementType(b.Type), QuantityMilli: b.QuantityMilli, Reason: b.Reason,
+	})
+	var (
+		ve    *ValidationError
+		short *InsufficientStockError
+	)
+	switch {
+	case errors.Is(err, identity.ErrForbidden):
+		return gen.CreateStockAdjustment403ApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusForbidden, msgForbiddenAdjust)), nil
+	case errors.Is(err, ErrLotNotFound):
+		return gen.CreateStockAdjustment404ApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusNotFound, msgLotNotFound)), nil
+	case errors.As(err, &short):
+		return gen.CreateStockAdjustment409ApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusConflict, insufficientMessage(short))), nil
+	case errors.As(err, &ve):
+		return gen.CreateStockAdjustment422ApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusUnprocessableEntity, ve.Message)), nil
+	case err != nil:
+		return nil, err
+	}
+	return gen.CreateStockAdjustment201JSONResponse{
+		Movement: gen.StockMovement{
+			Id: mv.ID, LotId: mv.LotID, Type: gen.StockAdjustmentType(mv.Type),
+			QuantityMilli: mv.QuantityMilli, Reason: mv.Reason, CreatedAt: mv.CreatedAt,
+		},
+		Lot: toStockLot(lot),
+	}, nil
+}
+
+func (h *Endpoints) ListStockLots(ctx context.Context, req gen.ListStockLotsRequestObject) (gen.ListStockLotsResponseObject, error) {
+	lots, err := h.svc.ListLots(ctx, actor(ctx), req.Params.ProductId)
+	switch {
+	case errors.Is(err, identity.ErrForbidden):
+		return gen.ListStockLots403ApplicationProblemPlusJSONResponse(problems.New(ctx, http.StatusForbidden, msgForbidden)), nil
+	case err != nil:
+		return nil, err
+	}
+	out := make(gen.ListStockLots200JSONResponse, len(lots))
+	for i, l := range lots {
+		out[i] = toStockLot(l)
+	}
+	return out, nil
+}
+
+// insufficientMessage diz quanto resta no lote, porque quem pediu pode estar
+// a ver um valor antigo (outra pessoa mexeu no lote entretanto).
+func insufficientMessage(e *InsufficientStockError) string {
+	if e.LeftMilli == 0 {
+		return "Este lote já não tem stock: não se pode tirar mais (o stock nunca fica negativo). Recarrega os lotes."
+	}
+	return "Este lote só tem " + FormatQuantity(e.LeftMilli, e.Unit) +
+		": não se pode tirar mais do que isso (o stock nunca fica negativo). Recarrega os lotes para veres o valor atual."
 }
 
 func toStockLot(l Lot) gen.StockLot {

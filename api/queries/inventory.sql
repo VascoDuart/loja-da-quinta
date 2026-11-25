@@ -14,10 +14,11 @@ VALUES (sqlc.arg(product_id), sqlc.arg(unit), sqlc.arg(quantity_milli)::bigint::
 RETURNING id, product_id, unit, (qty_received * 1000)::bigint AS qty_received_milli,
           (qty_left * 1000)::bigint AS qty_left_milli, harvested_on, expires_on, created_at;
 
--- name: InsertMovement :exec
+-- name: InsertMovement :one
 INSERT INTO stock_movements (lot_id, type, quantity, user_id, reason)
 VALUES (sqlc.arg(lot_id), sqlc.arg(type), sqlc.arg(quantity_milli)::bigint::numeric / 1000,
-        sqlc.arg(user_id), sqlc.narg(reason));
+        sqlc.arg(user_id), sqlc.narg(reason))
+RETURNING id, created_at;
 
 -- Stock disponível por produto: a soma do que resta nos lotes ainda dentro
 -- da validade (um lote que expira hoje ainda conta). Os produtos sem stock
@@ -33,3 +34,41 @@ GROUP BY product_id;
 -- Se o produto tem algum lote (com ou sem stock): a unidade dele já não muda.
 -- name: ProductHasLots :one
 SELECT EXISTS (SELECT 1 FROM stock_lots WHERE product_id = $1);
+
+-- name: GetLot :one
+SELECT id, product_id, unit, (qty_received * 1000)::bigint AS qty_received_milli,
+       (qty_left * 1000)::bigint AS qty_left_milli, harvested_on, expires_on, created_at
+FROM stock_lots
+WHERE id = $1;
+
+-- Bloqueia o lote até ao fim da transação: quem quiser mexer no mesmo lote
+-- (outro ajuste, uma venda) espera, e depois lê o que restar. É a base de
+-- todas as saídas de stock (ajustes, quebras e, no #15, as vendas por FEFO).
+-- name: LockLot :one
+SELECT id, product_id, unit, (qty_received * 1000)::bigint AS qty_received_milli,
+       (qty_left * 1000)::bigint AS qty_left_milli, harvested_on, expires_on, created_at
+FROM stock_lots
+WHERE id = $1
+FOR UPDATE;
+
+-- Soma ao que resta no lote (delta com sinal). Usa-se só com o lote
+-- bloqueado (LockLot) e depois de o serviço ver que não fica negativo; o
+-- CHECK (qty_left >= 0) é a última defesa.
+-- name: AddToLot :one
+UPDATE stock_lots SET qty_left = qty_left + sqlc.arg(delta_milli)::bigint::numeric / 1000
+WHERE id = sqlc.arg(id)
+RETURNING id, product_id, unit, (qty_received * 1000)::bigint AS qty_received_milli,
+          (qty_left * 1000)::bigint AS qty_left_milli, harvested_on, expires_on, created_at;
+
+-- Lotes de um produto para os ajustes: os que ainda têm stock (também fora
+-- de validade, para a quebra) e os que ainda estão dentro da validade (um
+-- lote posto a 0 por engano ainda se corrige). Pela ordem em que o stock sai
+-- (FEFO), no máximo 200.
+-- name: ListLots :many
+SELECT id, product_id, unit, (qty_received * 1000)::bigint AS qty_received_milli,
+       (qty_left * 1000)::bigint AS qty_left_milli, harvested_on, expires_on, created_at
+FROM stock_lots
+WHERE product_id = sqlc.arg(product_id)
+  AND (qty_left > 0 OR expires_on >= sqlc.arg(today)::date)
+ORDER BY expires_on, created_at
+LIMIT 200;

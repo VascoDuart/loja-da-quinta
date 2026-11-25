@@ -15,6 +15,18 @@ var ErrUnitChanged = errors.New("a unidade do produto mudou entretanto")
 // ErrUnitChanged.
 var errProductKey = errors.New("o produto ou a unidade do lote já não existe")
 
+// ErrLotNotFound: o lote do ajuste não existe.
+var ErrLotNotFound = errors.New("o lote não existe")
+
+// InsufficientStockError: a saída deixaria o lote com stock negativo. Nada
+// se grava (409). LeftMilli é o que resta no lote, na unidade Unit.
+type InsufficientStockError struct {
+	LeftMilli int64
+	Unit      string
+}
+
+func (e *InsufficientStockError) Error() string { return "stock insuficiente no lote" }
+
 // ValidationError é um dado inválido, com a mensagem para quem usa a app.
 type ValidationError struct {
 	Field   string

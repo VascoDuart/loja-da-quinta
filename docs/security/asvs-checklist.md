@@ -25,7 +25,7 @@ Estado: ⬜ por fazer · 🟡 em curso · ✅ feito · ➖ não aplicável
 | V8 Dados | Dados sensíveis fora de URLs e de `localStorage` | `web/` (testado no E2E) | ✅ |
 | V9 Comunicações | TLS em todas as ligações (browser, proxy, BD, e-mail) | infraestrutura | ⬜ |
 | V10 Código malicioso | Dependências analisadas no CI | `security.yml` (govulncheck, Trivy, CodeQL) | ✅ |
-| V11 Lógica de negócio | Regras de negócio verificadas no servidor, com limites realistas (quantidade e datas de um lote, stock nunca negativo) | `inventory` + `CHECK` na BD | ✅ |
+| V11 Lógica de negócio | Regras de negócio verificadas no servidor, com limites realistas (quantidade e datas de um lote, stock nunca negativo, também com pedidos em simultâneo; unidade de um produto com lotes fixa) | `inventory` (lote bloqueado com `FOR UPDATE`) + `CHECK` e chave estrangeira `(product_id, unit)` na BD, com testes de concorrência | ✅ |
 | V12 Ficheiros | Tamanho máximo do upload (5 MB) e de píxeis (40 MP) | `catalog` (píxeis lidos antes de descodificar) | ✅ |
 | V12 Ficheiros | Tipo verificado pelo conteúdo, nunca pela extensão nem pelo `Content-Type` | `catalog` | ✅ |
 | V12 Ficheiros | Ficheiro reprocessado; o original não é guardado nem servido | `catalog` (EXIF e GPS removidos, testado) | ✅ |
