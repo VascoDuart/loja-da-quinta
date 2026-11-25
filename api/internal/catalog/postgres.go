@@ -138,6 +138,10 @@ func (s *PostgresStore) UpdateProduct(ctx context.Context, id uuid.UUID, expecte
 		}
 		return Product{}, ErrVersionMismatch
 	}
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.ConstraintName == lotUnitKey {
+		return Product{}, ErrUnitLocked
+	}
 	if err != nil {
 		return Product{}, mapErr(err, "gravar o produto", errNoCategory)
 	}
@@ -280,6 +284,11 @@ func mapErr(err error, what string, onFK error) error {
 	}
 	return fmt.Errorf("%s: %w", what, err)
 }
+
+// lotUnitKey é a chave estrangeira dos lotes para (produto, unidade)
+// (migração 00005): falha quando se muda a unidade de um produto com lotes.
+// O catálogo não lê os lotes; só reconhece a recusa da base de dados.
+const lotUnitKey = "stock_lots_product_unit_fkey"
 
 // errNoCategory é o erro de gravar um produto numa categoria que não existe.
 var errNoCategory = &ValidationError{Field: "categoryId", Message: "A categoria escolhida não existe."}

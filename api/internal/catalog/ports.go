@@ -23,6 +23,7 @@ type Repo interface {
 	CreateProduct(ctx context.Context, in ProductInput) (Product, error)
 	// UpdateProduct só grava se o produto ainda estiver na versão
 	// expectedVersion; senão devolve ErrVersionMismatch (ou ErrNotFound).
+	// ErrUnitLocked se mudar a unidade de um produto que tem lotes.
 	UpdateProduct(ctx context.Context, id uuid.UUID, expectedVersion time.Time, in ProductInput) (Product, error)
 	// DeleteProduct devolve ErrInUse se o produto tiver histórico.
 	DeleteProduct(ctx context.Context, id uuid.UUID) error
@@ -43,6 +44,23 @@ type Repo interface {
 type StockSource interface {
 	StockMilli(ctx context.Context, productIDs []uuid.UUID) (map[uuid.UUID]int64, error)
 }
+
+// LotChecker diz se um produto já tem lotes de stock. É a porta por onde o
+// módulo inventory impede a mudança de unidade de um produto com lotes, sem
+// o catálogo ler as tabelas de stock.
+//
+// É a verificação que dá a mensagem ao gestor. Quem garante a regra, mesmo
+// com um lote a entrar ao mesmo tempo, é a base de dados (migração 00005):
+// o Repo devolve então ErrUnitLocked.
+type LotChecker interface {
+	HasLots(ctx context.Context, productID uuid.UUID) (bool, error)
+}
+
+// noLots é o LotChecker enquanto ninguém liga o stock (WithStock): nunca
+// encontra lotes, e a regra fica só com a base de dados.
+type noLots struct{}
+
+func (noLots) HasLots(context.Context, uuid.UUID) (bool, error) { return false, nil }
 
 // noStock é a StockSource enquanto ninguém liga o stock real (WithStock):
 // nenhum produto tem stock e todos aparecem esgotados. Na dúvida, o catálogo

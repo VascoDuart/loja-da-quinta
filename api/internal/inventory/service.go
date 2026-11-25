@@ -2,6 +2,7 @@ package inventory
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -36,7 +37,60 @@ func (s *Service) RegisterLot(ctx context.Context, actor identity.Principal, in 
 	if err := in.Validate(p, Day(s.now())); err != nil {
 		return Lot{}, err
 	}
-	return s.repo.CreateLot(ctx, in, actor.UserID)
+	lot, err := s.repo.CreateLot(ctx, in, p.Unit, actor.UserID)
+	if errors.Is(err, errProductKey) {
+		// Entre a leitura do produto e a gravação, o produto foi apagado ou
+		// mudou de unidade (a base de dados recusou o par produto e unidade).
+		if _, err := s.products.Product(ctx, in.ProductID); err != nil {
+			return Lot{}, err
+		}
+		return Lot{}, ErrUnitChanged
+	}
+	return lot, err
+}
+
+// Adjust regista um ajuste ou uma quebra num lote (RF-06). Só o gestor. O
+// motivo é obrigatório e o stock do lote nunca fica negativo, mesmo com
+// pedidos ao mesmo tempo (Repo.Move bloqueia o lote).
+func (s *Service) Adjust(ctx context.Context, actor identity.Principal, in Adjustment) (Lot, RecordedMovement, error) {
+	if err := requireGestor(actor); err != nil {
+		return Lot{}, RecordedMovement{}, err
+	}
+	in = in.Normalized()
+	if err := in.Validate(); err != nil {
+		return Lot{}, RecordedMovement{}, err
+	}
+	lot, err := s.repo.Lot(ctx, in.LotID)
+	if err != nil {
+		return Lot{}, RecordedMovement{}, err
+	}
+	// A unidade do lote é a do produto, e não muda enquanto houver lotes
+	// (migração 00005): pode validar-se fora da transação.
+	p, err := s.products.Product(ctx, lot.ProductID)
+	if err != nil {
+		return Lot{}, RecordedMovement{}, err
+	}
+	if err := in.ValidateFor(p); err != nil {
+		return Lot{}, RecordedMovement{}, err
+	}
+	return s.repo.Move(ctx, Movement{
+		LotID: in.LotID, Type: in.Type, QuantityMilli: in.QuantityMilli, Reason: in.Reason, UserID: actor.UserID,
+	})
+}
+
+// ListLots devolve os lotes de um produto que têm stock ou ainda estão
+// dentro da validade, pela ordem FEFO: o que o ecrã de ajustes mostra.
+func (s *Service) ListLots(ctx context.Context, actor identity.Principal, productID uuid.UUID) ([]Lot, error) {
+	if err := requireStaff(actor); err != nil {
+		return nil, err
+	}
+	return s.repo.ListLots(ctx, productID, Day(s.now()))
+}
+
+// HasLots diz se o produto já tem lotes (com ou sem stock). Implementa a
+// porta catalog.LotChecker: um produto com lotes não muda de unidade.
+func (s *Service) HasLots(ctx context.Context, productID uuid.UUID) (bool, error) {
+	return s.repo.HasLots(ctx, productID)
 }
 
 // StockMilli diz quanto stock vendável há de cada produto, em milésimos: só
@@ -48,6 +102,14 @@ func (s *Service) StockMilli(ctx context.Context, productIDs []uuid.UUID) (map[u
 		return map[uuid.UUID]int64{}, nil
 	}
 	return s.repo.StockMilli(ctx, productIDs, Day(s.now()))
+}
+
+// requireGestor aceita só o gestor (docs/security/authz-matrix.md).
+func requireGestor(actor identity.Principal) error {
+	if actor.Role != identity.RoleGestor || actor.UserID == uuid.Nil {
+		return identity.ErrForbidden
+	}
+	return nil
 }
 
 // requireStaff aceita o funcionário e o gestor (docs/security/authz-matrix.md).

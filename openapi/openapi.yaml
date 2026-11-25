@@ -392,7 +392,9 @@ paths:
       description: |
         Exige If-Match com a versão lida (o ETag, ou o campo version). Se
         outra pessoa mudou o produto entretanto, responde 412 e não grava:
-        nenhuma alteração se perde sem aviso.
+        nenhuma alteração se perde sem aviso. A unidade de um produto que já
+        tem lotes de stock não muda (409): as quantidades dos lotes estão
+        nessa unidade.
       security:
         - bearerAuth: [gestor]
       parameters:
@@ -570,6 +572,40 @@ paths:
                 items:
                   $ref: "#/components/schemas/CatalogItem"
   /stock/lots:
+    get:
+      tags: [inventory]
+      operationId: listStockLots
+      summary: Lotes de um produto
+      description: |
+        Os lotes do produto que ainda têm stock (também os fora de validade,
+        para se poderem dar como quebra) ou que ainda estão dentro da
+        validade (um lote que ficou a 0 por engano ainda se pode corrigir).
+        Ordenados por validade, como sai o stock (FEFO), no máximo 200. A
+        consulta completa do stock e os alertas chegam com GET /stock (#14).
+      security:
+        - bearerAuth: [funcionario, gestor]
+      parameters:
+        - name: productId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Lotes (a lista pode estar vazia)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StockLot"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
     post:
       tags: [inventory]
       operationId: createStockLot
@@ -580,7 +616,8 @@ paths:
         (12500 = 12,5 kg); un, molho e duzia só aceitam múltiplos de 1000. O
         produto tem de existir e estar ativo. A colheita não pode ser no
         futuro e a validade não pode ser anterior à colheita nem a hoje (hora
-        de Lisboa).
+        de Lisboa). O lote guarda a unidade do produto; se ela mudar enquanto
+        se regista, responde 409 e não grava.
       security:
         - bearerAuth: [funcionario, gestor]
       requestBody:
@@ -601,6 +638,47 @@ paths:
         "401":
           $ref: "#/components/responses/Problem"
         "403":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
+  /stock/adjustments:
+    post:
+      tags: [inventory]
+      operationId: createStockAdjustment
+      summary: Regista um ajuste ou uma quebra num lote
+      description: |
+        Só o gestor. Um ajuste corrige o stock de um lote para mais ou para
+        menos (a quantidade tem sinal); uma quebra tira stock (quantidade
+        negativa). O motivo é obrigatório. Na mesma transação, bloqueia o
+        lote, atualiza o que resta e grava o movimento, com quem o fez. O
+        stock de um lote nunca fica negativo, nem com dois pedidos ao mesmo
+        tempo: se não houver que chegue, responde 409 e não grava nada.
+      security:
+        - bearerAuth: [gestor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StockAdjustmentInput"
+      responses:
+        "201":
+          description: Movimento registado, com o lote atualizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockAdjustment"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "404":
+          $ref: "#/components/responses/Problem"
+        "409":
           $ref: "#/components/responses/Problem"
         "422":
           $ref: "#/components/responses/Problem"
@@ -943,7 +1021,7 @@ components:
           description: Último dia em que o lote se pode vender. Nunca antes da colheita nem de hoje.
     StockLot:
       type: object
-      required: [id, productId, quantityReceivedMilli, quantityLeftMilli, harvestedOn, expiresOn, createdAt]
+      required: [id, productId, unit, quantityReceivedMilli, quantityLeftMilli, harvestedOn, expiresOn, createdAt]
       properties:
         id:
           type: string
@@ -951,6 +1029,8 @@ components:
         productId:
           type: string
           format: uuid
+        unit:
+          $ref: "#/components/schemas/Unit"
         quantityReceivedMilli:
           type: integer
           format: int64
@@ -968,6 +1048,60 @@ components:
         createdAt:
           type: string
           format: date-time
+    StockAdjustmentType:
+      type: string
+      enum: [ajuste, quebra]
+      description: ajuste corrige para mais ou para menos; quebra é stock que se estragou ou perdeu (sai do lote).
+    StockAdjustmentInput:
+      type: object
+      additionalProperties: false
+      required: [lotId, type, quantityMilli, reason]
+      properties:
+        lotId:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/StockAdjustmentType"
+        quantityMilli:
+          type: integer
+          format: int64
+          minimum: -100000000
+          maximum: 100000000
+          description: Quantidade com sinal, em milésimos da unidade do lote (-1500 = sai 1,5 kg). Nunca 0; numa quebra, negativa. Para un, molho e duzia, múltiplo de 1000.
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Porquê (por exemplo "caixa caiu", "contagem de inventário"). Obrigatório; os espaços nas pontas não contam.
+    StockMovement:
+      type: object
+      required: [id, lotId, type, quantityMilli, reason, createdAt]
+      properties:
+        id:
+          type: integer
+          format: int64
+        lotId:
+          type: string
+          format: uuid
+        type:
+          $ref: "#/components/schemas/StockAdjustmentType"
+        quantityMilli:
+          type: integer
+          format: int64
+          description: Quantidade com sinal, em milésimos da unidade do lote.
+        reason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+    StockAdjustment:
+      type: object
+      required: [movement, lot]
+      properties:
+        movement:
+          $ref: "#/components/schemas/StockMovement"
+        lot:
+          $ref: "#/components/schemas/StockLot"
     Session:
       type: object
       required: [accessToken, tokenType, expiresIn, user]

@@ -11,12 +11,17 @@ import (
 )
 
 type Querier interface {
+	// Soma ao que resta no lote (delta com sinal). Usa-se só com o lote
+	// bloqueado (LockLot) e depois de o serviço ver que não fica negativo; o
+	// CHECK (qty_left >= 0) é a última defesa.
+	AddToLot(ctx context.Context, arg AddToLotParams) (AddToLotRow, error)
 	CreateCategory(ctx context.Context, name string) (Category, error)
 	CreateProduct(ctx context.Context, arg CreateProductParams) (uuid.UUID, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeleteCategory(ctx context.Context, id uuid.UUID) (int64, error)
 	DeleteProduct(ctx context.Context, id uuid.UUID) (int64, error)
 	DeleteProductImages(ctx context.Context, productID uuid.UUID) (int64, error)
+	GetLot(ctx context.Context, id uuid.UUID) (GetLotRow, error)
 	GetProduct(ctx context.Context, id uuid.UUID) (GetProductRow, error)
 	// A versão pública da imagem é o hash da versão grande: entra no URL e
 	// muda sempre que a imagem muda.
@@ -34,8 +39,10 @@ type Querier interface {
 	// As quantidades saem e entram em milésimos inteiros (…_milli), como o
 	// dinheiro em cêntimos (ADR-0009): nunca há vírgula flutuante entre a base de
 	// dados e a API.
+	// A unidade é a do produto quando a quantidade foi validada: se entretanto
+	// mudou, a chave estrangeira (product_id, unit) recusa o lote (00005).
 	InsertLot(ctx context.Context, arg InsertLotParams) (InsertLotRow, error)
-	InsertMovement(ctx context.Context, arg InsertMovementParams) error
+	InsertMovement(ctx context.Context, arg InsertMovementParams) (InsertMovementRow, error)
 	InsertProductImage(ctx context.Context, arg InsertProductImageParams) error
 	// Queries do módulo auth. Só este módulo lê ou escreve a tabela refresh_tokens.
 	InsertRefreshToken(ctx context.Context, arg InsertRefreshTokenParams) error
@@ -46,16 +53,27 @@ type Querier interface {
 	// o dinheiro em cêntimos (ADR-0009): nunca há vírgula flutuante entre a base
 	// de dados e a API.
 	ListCategories(ctx context.Context) ([]ListCategoriesRow, error)
+	// Lotes de um produto para os ajustes: os que ainda têm stock (também fora
+	// de validade, para a quebra) e os que ainda estão dentro da validade (um
+	// lote posto a 0 por engano ainda se corrige). Pela ordem em que o stock sai
+	// (FEFO), no máximo 200.
+	ListLots(ctx context.Context, arg ListLotsParams) ([]ListLotsRow, error)
 	ListProducts(ctx context.Context) ([]ListProductsRow, error)
 	// Catálogo público: só produtos ativos e públicos, e só as colunas que o
 	// público pode ver (nunca IVA, limiar de stock, ativo nem datas). O limiar
 	// vem só para o serviço decidir a disponibilidade; não sai para a API.
 	ListPublicProducts(ctx context.Context) ([]ListPublicProductsRow, error)
 	ListUsers(ctx context.Context) ([]User, error)
+	// Bloqueia o lote até ao fim da transação: quem quiser mexer no mesmo lote
+	// (outro ajuste, uma venda) espera, e depois lê o que restar. É a base de
+	// todas as saídas de stock (ajustes, quebras e, no #15, as vendas por FEFO).
+	LockLot(ctx context.Context, id uuid.UUID) (LockLotRow, error)
 	// Bloqueia o produto durante a troca da imagem: dois uploads ao mesmo tempo
 	// não deixam versões misturadas.
 	LockProduct(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
 	ProductExists(ctx context.Context, id uuid.UUID) (bool, error)
+	// Se o produto tem algum lote (com ou sem stock): a unidade dele já não muda.
+	ProductHasLots(ctx context.Context, productID uuid.UUID) (bool, error)
 	RenameCategory(ctx context.Context, arg RenameCategoryParams) (Category, error)
 	RevokeRefreshFamily(ctx context.Context, familyID uuid.UUID) (int64, error)
 	RevokeRefreshToken(ctx context.Context, id uuid.UUID) error

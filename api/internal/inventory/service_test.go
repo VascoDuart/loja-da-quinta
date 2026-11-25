@@ -35,8 +35,8 @@ func TestDayIsTheDayInLisbon(t *testing.T) {
 
 var (
 	today  = day(2026, 11, 25)
-	kg     = Product{ID: uuid.New(), Name: "Laranja", Decimal: true, Active: true}
-	dozens = Product{ID: uuid.New(), Name: "Ovos", Decimal: false, Active: true}
+	kg     = Product{ID: uuid.New(), Name: "Laranja", Unit: "kg", Decimal: true, Active: true}
+	dozens = Product{ID: uuid.New(), Name: "Ovos", Unit: "duzia", Decimal: false, Active: true}
 )
 
 func validLot() NewLot {
@@ -98,16 +98,61 @@ func TestNormalizedKeepsTheCalendarDay(t *testing.T) {
 
 type fakeRepo struct {
 	created []NewLot
+	units   []string
 	by      []uuid.UUID
-	asked   []uuid.UUID
-	today   time.Time
-	levels  map[uuid.UUID]int64
+	// keyErr faz o CreateLot falhar como a chave (produto, unidade) da base
+	// de dados, quando o produto mudou ou desapareceu entretanto.
+	keyErr bool
+	lotsOf map[uuid.UUID]bool
+	// lots são os lotes gravados; Move aplica-lhes os movimentos como o
+	// PostgresStore (Lot.LeftAfter), e moves guarda os que passaram.
+	lots      map[uuid.UUID]Lot
+	moves     []Movement
+	listedFor uuid.UUID
+	listedDay time.Time
+	asked     []uuid.UUID
+	today     time.Time
+	levels    map[uuid.UUID]int64
 }
 
-func (f *fakeRepo) CreateLot(_ context.Context, in NewLot, userID uuid.UUID) (Lot, error) {
+func (f *fakeRepo) CreateLot(_ context.Context, in NewLot, unit string, userID uuid.UUID) (Lot, error) {
+	if f.keyErr {
+		return Lot{}, errProductKey
+	}
 	f.created = append(f.created, in)
+	f.units = append(f.units, unit)
 	f.by = append(f.by, userID)
-	return Lot{ID: uuid.New(), ProductID: in.ProductID, QtyReceivedMilli: in.QuantityMilli, QtyLeftMilli: in.QuantityMilli}, nil
+	return Lot{ID: uuid.New(), ProductID: in.ProductID, Unit: unit, QtyReceivedMilli: in.QuantityMilli, QtyLeftMilli: in.QuantityMilli}, nil
+}
+
+func (f *fakeRepo) HasLots(_ context.Context, id uuid.UUID) (bool, error) { return f.lotsOf[id], nil }
+
+func (f *fakeRepo) Lot(_ context.Context, id uuid.UUID) (Lot, error) {
+	l, ok := f.lots[id]
+	if !ok {
+		return Lot{}, ErrLotNotFound
+	}
+	return l, nil
+}
+
+func (f *fakeRepo) ListLots(_ context.Context, productID uuid.UUID, today time.Time) ([]Lot, error) {
+	f.listedFor, f.listedDay = productID, today
+	return nil, nil
+}
+
+func (f *fakeRepo) Move(_ context.Context, m Movement) (Lot, RecordedMovement, error) {
+	l, ok := f.lots[m.LotID]
+	if !ok {
+		return Lot{}, RecordedMovement{}, ErrLotNotFound
+	}
+	left, err := l.LeftAfter(m.QuantityMilli)
+	if err != nil {
+		return Lot{}, RecordedMovement{}, err
+	}
+	l.QtyLeftMilli = left
+	f.lots[m.LotID] = l
+	f.moves = append(f.moves, m)
+	return l, RecordedMovement{ID: int64(len(f.moves)), LotID: l.ID, Type: m.Type, QuantityMilli: m.QuantityMilli, Reason: m.Reason}, nil
 }
 
 func (f *fakeRepo) StockMilli(_ context.Context, ids []uuid.UUID, today time.Time) (map[uuid.UUID]int64, error) {
@@ -122,6 +167,19 @@ func (f fakeProducts) Product(_ context.Context, id uuid.UUID) (Product, error) 
 	if !ok {
 		return Product{}, ErrProductNotFound
 	}
+	return p, nil
+}
+
+// vanishing devolve o produto na primeira pergunta e depois já não o
+// encontra (foi apagado entre a validação e a gravação).
+type vanishing struct{ p Product }
+
+func (v *vanishing) Product(context.Context, uuid.UUID) (Product, error) {
+	if v.p.ID == uuid.Nil {
+		return Product{}, ErrProductNotFound
+	}
+	p := v.p
+	v.p = Product{}
 	return p, nil
 }
 
@@ -151,6 +209,22 @@ func TestRegisterLot(t *testing.T) {
 		}
 		if len(repo.by) != 2 || repo.by[0] != funcionario.UserID || repo.by[1] != gestor.UserID {
 			t.Errorf("autores: %v", repo.by)
+		}
+		if repo.units[0] != "kg" {
+			t.Errorf("o lote guarda a unidade em que a quantidade foi validada: %v", repo.units)
+		}
+	})
+
+	t.Run("a base de dados recusa o par produto e unidade", func(t *testing.T) {
+		// O produto ainda existe: mudou de unidade entretanto (409).
+		changed := &fakeRepo{keyErr: true}
+		if _, err := newSvc(changed).RegisterLot(ctx, funcionario, validLot()); !errors.Is(err, ErrUnitChanged) {
+			t.Errorf("queria ErrUnitChanged, deu %v", err)
+		}
+		// O produto desapareceu entretanto: a pergunta ao catálogo diz qual.
+		gone := NewService(&fakeRepo{keyErr: true}, &vanishing{kg}, clock)
+		if _, err := gone.RegisterLot(ctx, funcionario, validLot()); !errors.Is(err, ErrProductNotFound) {
+			t.Errorf("queria ErrProductNotFound, deu %v", err)
 		}
 	})
 

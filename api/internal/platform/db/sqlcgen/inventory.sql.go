@@ -12,17 +12,94 @@ import (
 	"github.com/google/uuid"
 )
 
+const addToLot = `-- name: AddToLot :one
+UPDATE stock_lots SET qty_left = qty_left + $1::bigint::numeric / 1000
+WHERE id = $2
+RETURNING id, product_id, unit, (qty_received * 1000)::bigint AS qty_received_milli,
+          (qty_left * 1000)::bigint AS qty_left_milli, harvested_on, expires_on, created_at
+`
+
+type AddToLotParams struct {
+	DeltaMilli int64
+	ID         uuid.UUID
+}
+
+type AddToLotRow struct {
+	ID               uuid.UUID
+	ProductID        uuid.UUID
+	Unit             string
+	QtyReceivedMilli int64
+	QtyLeftMilli     int64
+	HarvestedOn      time.Time
+	ExpiresOn        time.Time
+	CreatedAt        time.Time
+}
+
+// Soma ao que resta no lote (delta com sinal). Usa-se só com o lote
+// bloqueado (LockLot) e depois de o serviço ver que não fica negativo; o
+// CHECK (qty_left >= 0) é a última defesa.
+func (q *Queries) AddToLot(ctx context.Context, arg AddToLotParams) (AddToLotRow, error) {
+	row := q.db.QueryRow(ctx, addToLot, arg.DeltaMilli, arg.ID)
+	var i AddToLotRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProductID,
+		&i.Unit,
+		&i.QtyReceivedMilli,
+		&i.QtyLeftMilli,
+		&i.HarvestedOn,
+		&i.ExpiresOn,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getLot = `-- name: GetLot :one
+SELECT id, product_id, unit, (qty_received * 1000)::bigint AS qty_received_milli,
+       (qty_left * 1000)::bigint AS qty_left_milli, harvested_on, expires_on, created_at
+FROM stock_lots
+WHERE id = $1
+`
+
+type GetLotRow struct {
+	ID               uuid.UUID
+	ProductID        uuid.UUID
+	Unit             string
+	QtyReceivedMilli int64
+	QtyLeftMilli     int64
+	HarvestedOn      time.Time
+	ExpiresOn        time.Time
+	CreatedAt        time.Time
+}
+
+func (q *Queries) GetLot(ctx context.Context, id uuid.UUID) (GetLotRow, error) {
+	row := q.db.QueryRow(ctx, getLot, id)
+	var i GetLotRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProductID,
+		&i.Unit,
+		&i.QtyReceivedMilli,
+		&i.QtyLeftMilli,
+		&i.HarvestedOn,
+		&i.ExpiresOn,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertLot = `-- name: InsertLot :one
 
-INSERT INTO stock_lots (product_id, qty_received, qty_left, harvested_on, expires_on)
-VALUES ($1, $2::bigint::numeric / 1000,
-        $2::bigint::numeric / 1000, $3, $4)
-RETURNING id, product_id, (qty_received * 1000)::bigint AS qty_received_milli,
+INSERT INTO stock_lots (product_id, unit, qty_received, qty_left, harvested_on, expires_on)
+VALUES ($1, $2, $3::bigint::numeric / 1000,
+        $3::bigint::numeric / 1000, $4, $5)
+RETURNING id, product_id, unit, (qty_received * 1000)::bigint AS qty_received_milli,
           (qty_left * 1000)::bigint AS qty_left_milli, harvested_on, expires_on, created_at
 `
 
 type InsertLotParams struct {
 	ProductID     uuid.UUID
+	Unit          string
 	QuantityMilli int64
 	HarvestedOn   time.Time
 	ExpiresOn     time.Time
@@ -31,6 +108,7 @@ type InsertLotParams struct {
 type InsertLotRow struct {
 	ID               uuid.UUID
 	ProductID        uuid.UUID
+	Unit             string
 	QtyReceivedMilli int64
 	QtyLeftMilli     int64
 	HarvestedOn      time.Time
@@ -44,9 +122,12 @@ type InsertLotRow struct {
 // As quantidades saem e entram em milésimos inteiros (…_milli), como o
 // dinheiro em cêntimos (ADR-0009): nunca há vírgula flutuante entre a base de
 // dados e a API.
+// A unidade é a do produto quando a quantidade foi validada: se entretanto
+// mudou, a chave estrangeira (product_id, unit) recusa o lote (00005).
 func (q *Queries) InsertLot(ctx context.Context, arg InsertLotParams) (InsertLotRow, error) {
 	row := q.db.QueryRow(ctx, insertLot,
 		arg.ProductID,
+		arg.Unit,
 		arg.QuantityMilli,
 		arg.HarvestedOn,
 		arg.ExpiresOn,
@@ -55,6 +136,7 @@ func (q *Queries) InsertLot(ctx context.Context, arg InsertLotParams) (InsertLot
 	err := row.Scan(
 		&i.ID,
 		&i.ProductID,
+		&i.Unit,
 		&i.QtyReceivedMilli,
 		&i.QtyLeftMilli,
 		&i.HarvestedOn,
@@ -64,10 +146,11 @@ func (q *Queries) InsertLot(ctx context.Context, arg InsertLotParams) (InsertLot
 	return i, err
 }
 
-const insertMovement = `-- name: InsertMovement :exec
+const insertMovement = `-- name: InsertMovement :one
 INSERT INTO stock_movements (lot_id, type, quantity, user_id, reason)
 VALUES ($1, $2, $3::bigint::numeric / 1000,
         $4, $5)
+RETURNING id, created_at
 `
 
 type InsertMovementParams struct {
@@ -78,15 +161,131 @@ type InsertMovementParams struct {
 	Reason        *string
 }
 
-func (q *Queries) InsertMovement(ctx context.Context, arg InsertMovementParams) error {
-	_, err := q.db.Exec(ctx, insertMovement,
+type InsertMovementRow struct {
+	ID        int64
+	CreatedAt time.Time
+}
+
+func (q *Queries) InsertMovement(ctx context.Context, arg InsertMovementParams) (InsertMovementRow, error) {
+	row := q.db.QueryRow(ctx, insertMovement,
 		arg.LotID,
 		arg.Type,
 		arg.QuantityMilli,
 		arg.UserID,
 		arg.Reason,
 	)
-	return err
+	var i InsertMovementRow
+	err := row.Scan(&i.ID, &i.CreatedAt)
+	return i, err
+}
+
+const listLots = `-- name: ListLots :many
+SELECT id, product_id, unit, (qty_received * 1000)::bigint AS qty_received_milli,
+       (qty_left * 1000)::bigint AS qty_left_milli, harvested_on, expires_on, created_at
+FROM stock_lots
+WHERE product_id = $1
+  AND (qty_left > 0 OR expires_on >= $2::date)
+ORDER BY expires_on, created_at
+LIMIT 200
+`
+
+type ListLotsParams struct {
+	ProductID uuid.UUID
+	Today     time.Time
+}
+
+type ListLotsRow struct {
+	ID               uuid.UUID
+	ProductID        uuid.UUID
+	Unit             string
+	QtyReceivedMilli int64
+	QtyLeftMilli     int64
+	HarvestedOn      time.Time
+	ExpiresOn        time.Time
+	CreatedAt        time.Time
+}
+
+// Lotes de um produto para os ajustes: os que ainda têm stock (também fora
+// de validade, para a quebra) e os que ainda estão dentro da validade (um
+// lote posto a 0 por engano ainda se corrige). Pela ordem em que o stock sai
+// (FEFO), no máximo 200.
+func (q *Queries) ListLots(ctx context.Context, arg ListLotsParams) ([]ListLotsRow, error) {
+	rows, err := q.db.Query(ctx, listLots, arg.ProductID, arg.Today)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLotsRow{}
+	for rows.Next() {
+		var i ListLotsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProductID,
+			&i.Unit,
+			&i.QtyReceivedMilli,
+			&i.QtyLeftMilli,
+			&i.HarvestedOn,
+			&i.ExpiresOn,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockLot = `-- name: LockLot :one
+SELECT id, product_id, unit, (qty_received * 1000)::bigint AS qty_received_milli,
+       (qty_left * 1000)::bigint AS qty_left_milli, harvested_on, expires_on, created_at
+FROM stock_lots
+WHERE id = $1
+FOR UPDATE
+`
+
+type LockLotRow struct {
+	ID               uuid.UUID
+	ProductID        uuid.UUID
+	Unit             string
+	QtyReceivedMilli int64
+	QtyLeftMilli     int64
+	HarvestedOn      time.Time
+	ExpiresOn        time.Time
+	CreatedAt        time.Time
+}
+
+// Bloqueia o lote até ao fim da transação: quem quiser mexer no mesmo lote
+// (outro ajuste, uma venda) espera, e depois lê o que restar. É a base de
+// todas as saídas de stock (ajustes, quebras e, no #15, as vendas por FEFO).
+func (q *Queries) LockLot(ctx context.Context, id uuid.UUID) (LockLotRow, error) {
+	row := q.db.QueryRow(ctx, lockLot, id)
+	var i LockLotRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProductID,
+		&i.Unit,
+		&i.QtyReceivedMilli,
+		&i.QtyLeftMilli,
+		&i.HarvestedOn,
+		&i.ExpiresOn,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const productHasLots = `-- name: ProductHasLots :one
+SELECT EXISTS (SELECT 1 FROM stock_lots WHERE product_id = $1)
+`
+
+// Se o produto tem algum lote (com ou sem stock): a unidade dele já não muda.
+func (q *Queries) ProductHasLots(ctx context.Context, productID uuid.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, productHasLots, productID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const stockByProduct = `-- name: StockByProduct :many
