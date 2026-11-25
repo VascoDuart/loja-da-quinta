@@ -244,6 +244,9 @@ func TestAuthorizationMatrix(t *testing.T) {
 	tokens := map[string]string{"visitante": "", "funcionario": funcionario, "gestor": gestor}
 
 	newUser := map[string]string{"email": "novo@quinta.pt", "name": "Novo", "role": "funcionario", "password": pw}
+	category := call(t, srv, "POST", "/categories", map[string]string{"name": "Matriz"}, bearer(gestor)).body["id"]
+	stocked := call(t, srv, "POST", "/products", product(category, "Matriz"), bearer(gestor)).body["id"]
+	newLot := lot(stocked, 1000, lisbonDay(0), lisbonDay(3))
 	rows := []struct {
 		method, path string
 		body         any
@@ -254,6 +257,7 @@ func TestAuthorizationMatrix(t *testing.T) {
 		{"GET", "/users", nil, map[string]int{"visitante": 401, "funcionario": 403, "gestor": 200}},
 		{"POST", "/users", newUser, map[string]int{"visitante": 401, "funcionario": 403, "gestor": 201}},
 		{"PATCH", "/users/" + target.ID.String(), map[string]string{"name": "Alvo"}, map[string]int{"visitante": 401, "funcionario": 403, "gestor": 200}},
+		{"POST", "/stock/lots", newLot, map[string]int{"visitante": 401, "funcionario": 201, "gestor": 201}},
 	}
 	for _, row := range rows {
 		for who, token := range tokens {

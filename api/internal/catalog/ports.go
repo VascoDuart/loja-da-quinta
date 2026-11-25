@@ -34,25 +34,22 @@ type Repo interface {
 	ListPublicProducts(ctx context.Context) ([]Product, error)
 }
 
-// StockSource diz quanto stock há de cada produto, em milésimos da unidade.
-// É a porta por onde o módulo de stock (#12) liga o stock real ao catálogo
-// público: o catálogo nunca lê as tabelas de stock.
+// StockSource diz quanto stock vendável há de cada produto, em milésimos da
+// unidade. É a porta por onde o módulo inventory liga o stock real ao
+// catálogo público: o catálogo nunca lê as tabelas de stock.
 //
-// O resultado tem uma entrada por cada produto com stock controlado (0 se
-// não há nada); um produto ausente do mapa não tem stock controlado e
-// conta como disponível. A decisão (esgotado, pouco, disponível) é do
-// catálogo: ver AvailabilityOf.
+// Um produto ausente do mapa não tem stock (conta como 0). A decisão
+// (esgotado, pouco, disponível) é do catálogo: ver AvailabilityOf.
 type StockSource interface {
 	StockMilli(ctx context.Context, productIDs []uuid.UUID) (map[uuid.UUID]int64, error)
 }
 
-// UntrackedStock é a StockSource de hoje: ainda não há stock por lotes
-// (#12), por isso nenhum produto tem stock controlado e todos aparecem como
-// disponíveis.
-type UntrackedStock struct{}
+// noStock é a StockSource enquanto ninguém liga o stock real (WithStock):
+// nenhum produto tem stock e todos aparecem esgotados. Na dúvida, o catálogo
+// nunca anuncia o que pode não haver.
+type noStock struct{}
 
-// StockMilli não devolve nenhum produto.
-func (UntrackedStock) StockMilli(context.Context, []uuid.UUID) (map[uuid.UUID]int64, error) {
+func (noStock) StockMilli(context.Context, []uuid.UUID) (map[uuid.UUID]int64, error) {
 	return map[uuid.UUID]int64{}, nil
 }
 

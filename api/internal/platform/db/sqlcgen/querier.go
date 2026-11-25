@@ -28,6 +28,14 @@ type Querier interface {
 	// Queries do módulo users. Só este módulo lê ou escreve a tabela users.
 	GetUserByEmail(ctx context.Context, email string) (User, error)
 	GetUserByID(ctx context.Context, id uuid.UUID) (User, error)
+	// Queries do módulo inventory. Só este módulo lê ou escreve stock_lots e
+	// stock_movements.
+	//
+	// As quantidades saem e entram em milésimos inteiros (…_milli), como o
+	// dinheiro em cêntimos (ADR-0009): nunca há vírgula flutuante entre a base de
+	// dados e a API.
+	InsertLot(ctx context.Context, arg InsertLotParams) (InsertLotRow, error)
+	InsertMovement(ctx context.Context, arg InsertMovementParams) error
 	InsertProductImage(ctx context.Context, arg InsertProductImageParams) error
 	// Queries do módulo auth. Só este módulo lê ou escreve a tabela refresh_tokens.
 	InsertRefreshToken(ctx context.Context, arg InsertRefreshTokenParams) error
@@ -54,6 +62,10 @@ type Querier interface {
 	// Desativar um utilizador, mudar-lhe o papel ou a palavra-passe termina
 	// todas as sessões dele.
 	RevokeUserRefreshTokens(ctx context.Context, userID uuid.UUID) (int64, error)
+	// Stock disponível por produto: a soma do que resta nos lotes ainda dentro
+	// da validade (um lote que expira hoje ainda conta). Os produtos sem stock
+	// não aparecem.
+	StockByProduct(ctx context.Context, arg StockByProductParams) ([]StockByProductRow, error)
 	// Só grava se ninguém mudou o produto desde que o cliente o leu (If-Match):
 	// sem linhas devolvidas, o produto não existe ou a versão é outra.
 	UpdateProduct(ctx context.Context, arg UpdateProductParams) (uuid.UUID, error)

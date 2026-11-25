@@ -372,7 +372,7 @@ export const GetPublicCatalogResponseItem = zod.object({
   "image": zod.object({
   "version": zod.string().describe('Hash da imagem; vai no parâmetro v do URL público.')
 }).optional(),
-  "availability": zod.enum(['disponivel', 'pouco', 'esgotado']).describe('Estado do stock sem expor a quantidade. esgotado com stock 0; pouco abaixo do limiar de stock baixo do produto.')
+  "availability": zod.enum(['disponivel', 'pouco', 'esgotado']).describe('Estado do stock sem expor a quantidade. esgotado sem stock dentro da validade (os lotes fora de validade não contam); pouco abaixo do limiar de stock baixo do produto.')
 }).describe('Produto como o público o vê. Nunca tem quantidades exatas nem campos internos.')
 export const GetPublicCatalogResponse = zod.array(GetPublicCatalogResponseItem)
 

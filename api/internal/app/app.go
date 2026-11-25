@@ -5,15 +5,19 @@ package app
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/VascoDuart/loja-da-quinta/api/internal/auth"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/catalog"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/health"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/httpapi"
+	"github.com/VascoDuart/loja-da-quinta/api/internal/inventory"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/config"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/httpserver"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/password"
@@ -38,13 +42,19 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, pool *pgxpool
 		return nil, err
 	}
 	authSvc := auth.NewService(userSvc, sessions, tokens, log)
+	// O stock pergunta ao catálogo pelos produtos, e o catálogo público
+	// pergunta ao stock quanto há: cada um só conhece o serviço do outro.
 	catalogStore := catalog.NewPostgresStore(pool)
+	catalogSvc := catalog.NewService(catalogStore, catalogStore)
+	inventorySvc := inventory.NewService(inventory.NewPostgresStore(pool), catalogProducts{catalogSvc}, time.Now)
+	catalogSvc.WithStock(inventorySvc)
 
 	api := httpapi.New(
 		health.NewHandler(pool, log, cfg.Version),
 		auth.NewEndpoints(authSvc),
 		users.NewEndpoints(userSvc),
-		catalog.NewEndpoints(catalog.NewService(catalogStore, catalogStore)),
+		catalog.NewEndpoints(catalogSvc),
+		inventory.NewEndpoints(inventorySvc),
 	)
 	return httpserver.NewHandler(cfg, log, api, httpserver.Security{
 		Authenticate: authSvc.Authenticate,
@@ -61,4 +71,19 @@ func newTokens(cfg config.Config, log *slog.Logger) (*auth.JWT, error) {
 		return auth.NewEphemeralJWT(), nil
 	}
 	return auth.NewJWT(cfg.JWTSigningKey, cfg.JWTVerifyKeys)
+}
+
+// catalogProducts dá ao stock o que ele precisa de um produto, a partir do
+// serviço do catálogo (o inventory nunca lê a tabela products).
+type catalogProducts struct{ svc *catalog.Service }
+
+func (c catalogProducts) Product(ctx context.Context, id uuid.UUID) (inventory.Product, error) {
+	p, err := c.svc.GetProduct(ctx, id)
+	if errors.Is(err, catalog.ErrNotFound) {
+		return inventory.Product{}, inventory.ErrProductNotFound
+	}
+	if err != nil {
+		return inventory.Product{}, err
+	}
+	return inventory.Product{ID: p.ID, Name: p.Name, Decimal: p.Unit.Decimal(), Active: p.Active}, nil
 }

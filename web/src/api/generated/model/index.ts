@@ -31,6 +31,8 @@ export * from './session';
 export * from './sessionEndedResponse';
 export * from './sessionStartedResponse';
 export * from './sessionTokenType';
+export * from './stockLot';
+export * from './stockLotInput';
 export * from './unit';
 export * from './user';
 export * from './userUpdate';

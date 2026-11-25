@@ -15,6 +15,8 @@ tags:
     description: Gestão dos utilizadores internos pelo gestor (UC-02)
   - name: catalog
     description: Categorias, produtos e imagens (UC-03, ADR-0014)
+  - name: inventory
+    description: Stock por lotes, com colheita e validade (UC-04, ADR-0010)
 paths:
   /healthz:
     get:
@@ -567,6 +569,41 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/CatalogItem"
+  /stock/lots:
+    post:
+      tags: [inventory]
+      operationId: createStockLot
+      summary: Regista uma entrada de stock (um lote)
+      description: |
+        Grava o lote e o movimento de entrada, com quem o registou, na mesma
+        transação. A quantidade vem em milésimos da unidade do produto
+        (12500 = 12,5 kg); un, molho e duzia só aceitam múltiplos de 1000. O
+        produto tem de existir e estar ativo. A colheita não pode ser no
+        futuro e a validade não pode ser anterior à colheita nem a hoje (hora
+        de Lisboa).
+      security:
+        - bearerAuth: [funcionario, gestor]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StockLotInput"
+      responses:
+        "201":
+          description: Lote registado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockLot"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
 # Tudo é negado por omissão (docs/security/authz-matrix.md). Os papéis com
 # acesso a cada operação vão na lista do bearerAuth (OpenAPI 3.1 permite
 # papéis em esquemas que não são OAuth). Uma lista vazia não deixa ninguém
@@ -853,7 +890,7 @@ components:
     Availability:
       type: string
       enum: [disponivel, pouco, esgotado]
-      description: Estado do stock sem expor a quantidade. esgotado com stock 0; pouco abaixo do limiar de stock baixo do produto.
+      description: Estado do stock sem expor a quantidade. esgotado sem stock dentro da validade (os lotes fora de validade não contam); pouco abaixo do limiar de stock baixo do produto.
     CatalogItem:
       type: object
       description: Produto como o público o vê. Nunca tem quantidades exatas nem campos internos.
@@ -882,6 +919,55 @@ components:
           $ref: "#/components/schemas/ProductImage"
         availability:
           $ref: "#/components/schemas/Availability"
+    StockLotInput:
+      type: object
+      additionalProperties: false
+      required: [productId, quantityMilli, harvestedOn, expiresOn]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        quantityMilli:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 100000000
+          description: Quantidade recebida em milésimos da unidade do produto (12500 = 12,5 kg), até 100 000. Para un, molho e duzia, múltiplo de 1000.
+        harvestedOn:
+          type: string
+          format: date
+          description: Dia da colheita (não pode ser no futuro, na hora de Lisboa).
+        expiresOn:
+          type: string
+          format: date
+          description: Último dia em que o lote se pode vender. Nunca antes da colheita nem de hoje.
+    StockLot:
+      type: object
+      required: [id, productId, quantityReceivedMilli, quantityLeftMilli, harvestedOn, expiresOn, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        quantityReceivedMilli:
+          type: integer
+          format: int64
+          description: Quantidade que entrou, em milésimos da unidade.
+        quantityLeftMilli:
+          type: integer
+          format: int64
+          description: Quantidade que ainda resta no lote, em milésimos da unidade.
+        harvestedOn:
+          type: string
+          format: date
+        expiresOn:
+          type: string
+          format: date
+        createdAt:
+          type: string
+          format: date-time
     Session:
       type: object
       required: [accessToken, tokenType, expiresIn, user]

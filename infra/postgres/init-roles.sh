@@ -4,7 +4,7 @@
 # com palavras-passe guardadas nos segredos do GitHub e da Render.
 #
 #   migrator  dono do schema "loja"; corre as migrações (DDL)
-#   app       usado pela API; só DML (as migrações restringem audit_log)
+#   app       usado pela API; só DML (as migrações restringem stock_movements e audit_log)
 #   readonly  só leitura; para o DBeaver e diagnóstico
 set -eu
 
