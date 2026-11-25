@@ -1,6 +1,6 @@
 # Loja da Quinta: instruções para o Claude
 
-App de gestão de uma loja de quinta (projeto de portefólio). Monólito modular em Go + SPA React/TS, alojamento gratuito (Vercel, Render, Neon). Tudo em **português de Portugal**: código comentado, mensagens de commit, PRs, issues, textos da app e respostas ao utilizador.
+App de gestão de uma loja de quinta (projeto de portefólio). Monólito modular em Go + SPA React/TS, alojamento gratuito (Vercel, Render, Neon). **Idiomas:** o código e os scripts são em **inglês** (comentários, identificadores, nomes de testes, logs, output dos scripts), e também as mensagens de commit e os títulos e descrições dos PRs. Ficam em **português de Portugal** os textos da app e as mensagens de erro da API mostradas às pessoas, os documentos (`docs/`, README, este ficheiro), os issues e as respostas ao utilizador.
 
 ## Regras que nunca se quebram
 
@@ -8,7 +8,8 @@ App de gestão de uma loja de quinta (projeto de portefólio). Monólito modular
 - **Segredos nunca aparecem** no ecrã, em logs, em ficheiros do repositório ou em artefactos do CI (o repositório é público). Gerar com `openssl rand`/`make jwt-key` e encaminhar por stdin (`| gh secret set NOME`); para colar num site, `| clip.exe` e a pessoa cola. Validar só o formato. Nunca escrever a palavra-passe de uma pessoa: ela escreve-a no terminal (`createuser` pede sem eco).
 - **Dependências só com versões publicadas há pelo menos 14 dias** (exceto correções de segurança oficiais). Ver a data em `proxy.golang.org/<mod>/@v/<v>.info` ou `npm view <pkg> time`.
 - **Branches:** `main` (produção) ← `dev` (staging) ← `tipo/N-descricao` (curtas, a partir da `dev`). Nunca commitar direto na `dev` nem na `main`. Merge para a `dev` em **squash**; da `dev` para a `main` em merge commit.
-- **Conventional Commits** em português (`feat(api): …`, `fix(web): …`, `docs: …`, `ci: …`).
+- **Conventional Commits** em inglês (`feat(api): …`, `fix(web): …`, `docs: …`, `ci: …`).
+- **Código existente em português:** não se traduz de uma vez. Cada issue traduz para inglês os ficheiros em que mexe.
 
 ## Fluxo de um issue
 
