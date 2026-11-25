@@ -4,12 +4,15 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, type Page, test } from '@playwright/test'
 
 import { login } from './accounts'
+import { ensureInStock } from './stock'
 
 /**
  * Catálogo público (UC-10) de ponta a ponta. Também corre contra staging, por
  * isso cada dispositivo usa sempre a mesma categoria e o mesmo produto de
  * teste: cria-os na primeira vez (públicos, ao contrário dos de products.spec)
- * e depois só os reutiliza. Nunca se apagam.
+ * e depois só os reutiliza. Nunca se apagam. Para aparecer "Disponível", o
+ * produto precisa de stock: o funcionário regista um lote quando não há
+ * (ensureInStock).
  */
 // Os testes partilham o mesmo produto: correm um de cada vez (como em products.spec).
 test.describe.configure({ mode: 'serial' })
@@ -63,6 +66,7 @@ test('qualquer pessoa vê o produto público no catálogo e abre o detalhe, sem 
   const admin = await browser.newContext()
   await ensurePublicProduct(await admin.newPage(), name)
   await admin.close()
+  await ensureInStock(browser, name)
 
   // Um contexto novo: sem sessão e sem a cache de 60 s do catálogo.
   const visitor = await browser.newContext()
@@ -70,14 +74,14 @@ test('qualquer pessoa vê o produto público no catálogo e abre o detalhe, sem 
   await page.goto('/')
   const card = page.getByRole('list', { name: 'Produtos' }).getByRole('listitem').filter({ hasText: name })
   // O catálogo pode estar em cache (60 s) na Vercel ou no browser: na primeira
-  // execução, o produto acabou de ser criado e pode demorar a aparecer.
+  // execução, o produto ou o stock acabaram de ser criados e podem demorar a
+  // aparecer.
   await expect(async () => {
     await page.reload()
-    await expect(card).toBeVisible({ timeout: 3_000 })
+    await expect(card).toContainText('Disponível', { timeout: 3_000 })
   }).toPass({ timeout: 90_000, intervals: [2_000, 5_000, 10_000] })
 
   await expect(card).toContainText('€ / kg')
-  await expect(card).toContainText('Disponível')
   await expect(card).toContainText('Época: Todo o ano')
   const thumb = card.locator('img')
   await expect(thumb).toHaveAttribute('src', /\/image\?size=thumb&v=[0-9a-f]{64}$/)
@@ -114,6 +118,7 @@ for (const colorScheme of ['light', 'dark'] as const) {
       const admin = await browser.newContext({ colorScheme })
       await ensurePublicProduct(await admin.newPage(), name)
       await admin.close()
+      await ensureInStock(browser, name)
 
       const visitor = await browser.newContext({ colorScheme })
       const page = await visitor.newPage()
