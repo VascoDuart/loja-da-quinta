@@ -46,6 +46,11 @@ services:
       APP_ENV: development
       LOG_LEVEL: debug
       DATABASE_URL: postgres://app:${DB_APP_PASSWORD}@db:5432/${POSTGRES_DB:-loja}?sslmode=disable
+      # Alertas de stock (ADR-0015). Vazias por omissão: o job recusa todos os
+      # pedidos sem JOBS_TOKEN, e sem RESEND_API_KEY o e-mail fica no log.
+      JOBS_TOKEN: ${JOBS_TOKEN:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      ALERTS_TO: ${ALERTS_TO:-}
     ports:
       - "127.0.0.1:8080:8080"
     depends_on:

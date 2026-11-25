@@ -1,8 +1,13 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, useRef, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 
 import { useListProducts } from '../../api/generated/endpoints/catalog/catalog'
-import { createStockAdjustment, useListStockLots } from '../../api/generated/endpoints/inventory/inventory'
+import {
+  createStockAdjustment,
+  getGetStockOverviewQueryKey,
+  useListStockLots,
+} from '../../api/generated/endpoints/inventory/inventory'
 import type { Product, StockAdjustment, StockLot } from '../../api/generated/model'
 import { ApiError, errorMessage } from '../../api/http'
 import { formatDate, formatQuantity, lisbonToday, parseQuantityToMilli } from '../../shared/lib/format'
@@ -61,12 +66,16 @@ export default function AjustesPage() {
   const all = products.data?.status === 200 ? products.data.data : undefined
 
   const [today] = useState(lisbonToday)
-  const [productId, setProductId] = useState('')
+  const queryClient = useQueryClient()
+  // A consulta do stock liga para aqui com o produto e o lote já escolhidos
+  // (?produto=…&lote=…). Um valor que não exista fica no primeiro da lista.
+  const [params] = useSearchParams()
+  const [productId, setProductId] = useState(() => params.get('produto') ?? '')
   const product = all?.find((p) => p.id === productId) ?? all?.[0]
 
   const lots = useListStockLots({ productId: product?.id ?? '' }, { query: { enabled: !!product } })
   const lotList = lots.data?.status === 200 ? lots.data.data : undefined
-  const [lotId, setLotId] = useState('')
+  const [lotId, setLotId] = useState(() => params.get('lote') ?? '')
   const lot = lotList?.find((l) => l.id === lotId) ?? lotList?.[0]
 
   const [kind, setKind] = useState<Kind>('quebra')
@@ -119,6 +128,7 @@ export default function AjustesPage() {
         setQuantity('')
         setReason('')
         void lots.refetch()
+        void queryClient.invalidateQueries({ queryKey: getGetStockOverviewQueryKey() })
       }
     } catch (err) {
       setError(errorMessage(err))

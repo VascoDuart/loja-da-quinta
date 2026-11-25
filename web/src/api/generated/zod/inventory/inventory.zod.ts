@@ -15,7 +15,7 @@ import * as zod from 'zod';
  * para se poderem dar como quebra) ou que ainda estão dentro da
  * validade (um lote que ficou a 0 por engano ainda se pode corrigir).
  * Ordenados por validade, como sai o stock (FEFO), no máximo 200. A
- * consulta completa do stock e os alertas chegam com GET /stock (#14).
+ * consulta do stock de todos os produtos é o GET /stock.
  * @summary Lotes de um produto
  */
 export const ListStockLotsQueryParams = zod.object({
@@ -108,5 +108,59 @@ export const CreateStockAdjustmentResponse = zod.object({
   "expiresOn": zod.iso.date(),
   "createdAt": zod.iso.datetime({"offset":true})
 })
+})
+
+/**
+ * Os produtos ativos (mesmo sem stock) e os desativados que ainda têm
+ * lotes com stock, por nome. Para cada um: o stock vendável (só os lotes
+ * dentro da validade, na hora de Lisboa; um lote que expira hoje ainda
+ * conta), se está abaixo do limiar de stock baixo (só nos produtos
+ * ativos) e os lotes com stock, por ordem FEFO, cada um com o seu
+ * estado: valido, expira_em_breve (a validade é de hoje até daqui a 3
+ * dias) ou fora_de_validade (não se vende: o gestor dá-o como quebra).
+ * @summary Consulta do stock por produto e por lote
+ */
+export const GetStockOverviewResponse = zod.object({
+  "today": zod.iso.date().describe('O dia em Lisboa com que o stock foi calculado.'),
+  "expiringUntil": zod.iso.date().describe('Último dia considerado "a expirar" (today + 3).'),
+  "products": zod.array(zod.object({
+  "productId": zod.uuid(),
+  "name": zod.string(),
+  "unit": zod.enum(['kg', 'l', 'un', 'molho', 'duzia']).describe('kg e l aceitam casas decimais; un, molho e duzia só inteiros.'),
+  "active": zod.boolean(),
+  "sellableMilli": zod.int().describe('Soma do que resta nos lotes dentro da validade, em milésimos da unidade.'),
+  "lowStockMilli": zod.int().describe('Limiar de stock baixo do produto, em milésimos da unidade.'),
+  "low": zod.boolean().describe('Produto ativo com o stock vendável abaixo do limiar (um limiar 0 nunca dá stock baixo).'),
+  "lots": zod.array(zod.object({
+  "id": zod.uuid(),
+  "productId": zod.uuid(),
+  "unit": zod.enum(['kg', 'l', 'un', 'molho', 'duzia']).describe('kg e l aceitam casas decimais; un, molho e duzia só inteiros.'),
+  "quantityReceivedMilli": zod.int().describe('Quantidade que entrou, em milésimos da unidade.'),
+  "quantityLeftMilli": zod.int().describe('Quantidade que ainda resta no lote, em milésimos da unidade.'),
+  "harvestedOn": zod.iso.date(),
+  "expiresOn": zod.iso.date(),
+  "createdAt": zod.iso.datetime({"offset":true})
+}).and(zod.object({
+  "status": zod.enum(['valido', 'expira_em_breve', 'fora_de_validade']).describe('expira_em_breve: a validade é de hoje até daqui a 3 dias.\nfora_de_validade: a validade já passou.\n')
+}))).describe('Os lotes com stock, por ordem FEFO.')
+}))
+})
+
+/**
+ * Sem sessão de utilizador: só aceita o token próprio dos jobs, no
+ * cabeçalho X-Job-Token (ADR-0015). A partir das 07:00 de Lisboa, envia
+ * aos gestores o stock baixo, os lotes a expirar e os fora de validade,
+ * no máximo uma vez por dia: é seguro repetir o pedido. Sem nada a
+ * avisar, não envia nem marca o dia. Se o envio falhar, responde 502 e o
+ * pedido seguinte volta a tentar.
+ * @summary Envia o alerta diário de stock (chamado pelo agendamento)
+ */
+export const RunStockAlertsResponse = zod.object({
+  "status": zod.enum(['enviado', 'ja_enviado', 'antes_da_hora', 'sem_alertas']),
+  "day": zod.iso.date().describe('O dia em Lisboa a que se refere o pedido.'),
+  "delivery": zod.enum(['email', 'log']).optional().describe('Só quando enviado. log quer dizer que a API não tem chave do Resend e escreveu o e-mail no log.'),
+  "lowStockCount": zod.int().describe('Produtos com stock baixo (0 antes das 07:00).'),
+  "expiringCount": zod.int().describe('Lotes que expiram de hoje até daqui a 3 dias.'),
+  "expiredCount": zod.int().describe('Lotes fora de validade ainda com stock.')
 })
 

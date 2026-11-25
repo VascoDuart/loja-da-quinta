@@ -581,7 +581,7 @@ paths:
         para se poderem dar como quebra) ou que ainda estão dentro da
         validade (um lote que ficou a 0 por engano ainda se pode corrigir).
         Ordenados por validade, como sai o stock (FEFO), no máximo 200. A
-        consulta completa do stock e os alertas chegam com GET /stock (#14).
+        consulta do stock de todos os produtos é o GET /stock.
       security:
         - bearerAuth: [funcionario, gestor]
       parameters:
@@ -682,6 +682,57 @@ paths:
           $ref: "#/components/responses/Problem"
         "422":
           $ref: "#/components/responses/Problem"
+  /stock:
+    get:
+      tags: [inventory]
+      operationId: getStockOverview
+      summary: Consulta do stock por produto e por lote
+      description: |
+        Os produtos ativos (mesmo sem stock) e os desativados que ainda têm
+        lotes com stock, por nome. Para cada um: o stock vendável (só os lotes
+        dentro da validade, na hora de Lisboa; um lote que expira hoje ainda
+        conta), se está abaixo do limiar de stock baixo (só nos produtos
+        ativos) e os lotes com stock, por ordem FEFO, cada um com o seu
+        estado: valido, expira_em_breve (a validade é de hoje até daqui a 3
+        dias) ou fora_de_validade (não se vende: o gestor dá-o como quebra).
+      security:
+        - bearerAuth: [funcionario, gestor]
+      responses:
+        "200":
+          description: Stock de hoje (a lista de produtos pode estar vazia)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockOverview"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+  /jobs/stock-alerts:
+    post:
+      tags: [inventory]
+      operationId: runStockAlerts
+      summary: Envia o alerta diário de stock (chamado pelo agendamento)
+      description: |
+        Sem sessão de utilizador: só aceita o token próprio dos jobs, no
+        cabeçalho X-Job-Token (ADR-0015). A partir das 07:00 de Lisboa, envia
+        aos gestores o stock baixo, os lotes a expirar e os fora de validade,
+        no máximo uma vez por dia: é seguro repetir o pedido. Sem nada a
+        avisar, não envia nem marca o dia. Se o envio falhar, responde 502 e o
+        pedido seguinte volta a tentar.
+      security:
+        - jobToken: []
+      responses:
+        "200":
+          description: O que se fez
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StockAlertsRun"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "502":
+          $ref: "#/components/responses/Problem"
 # Tudo é negado por omissão (docs/security/authz-matrix.md). Os papéis com
 # acesso a cada operação vão na lista do bearerAuth (OpenAPI 3.1 permite
 # papéis em esquemas que não são OAuth). Uma lista vazia não deixa ninguém
@@ -694,6 +745,14 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    # Só para os jobs agendados (ADR-0015): um segredo partilhado com o
+    # GitHub Actions, comparado em tempo constante. Não dá acesso a mais nada,
+    # e uma sessão de utilizador não o substitui. Cada operação que o usa tem
+    # de estar na lista jobOperations de um teste.
+    jobToken:
+      type: apiKey
+      in: header
+      name: X-Job-Token
   parameters:
     Id:
       name: id
@@ -1048,6 +1107,89 @@ components:
         createdAt:
           type: string
           format: date-time
+    LotStatus:
+      type: string
+      enum: [valido, expira_em_breve, fora_de_validade]
+      description: |
+        expira_em_breve: a validade é de hoje até daqui a 3 dias.
+        fora_de_validade: a validade já passou.
+    StockOverviewLot:
+      allOf:
+        - $ref: "#/components/schemas/StockLot"
+        - type: object
+          required: [status]
+          properties:
+            status:
+              $ref: "#/components/schemas/LotStatus"
+    StockProduct:
+      type: object
+      required: [productId, name, unit, active, sellableMilli, lowStockMilli, low, lots]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        unit:
+          $ref: "#/components/schemas/Unit"
+        active:
+          type: boolean
+        sellableMilli:
+          type: integer
+          format: int64
+          description: Soma do que resta nos lotes dentro da validade, em milésimos da unidade.
+        lowStockMilli:
+          type: integer
+          format: int64
+          description: Limiar de stock baixo do produto, em milésimos da unidade.
+        low:
+          type: boolean
+          description: Produto ativo com o stock vendável abaixo do limiar (um limiar 0 nunca dá stock baixo).
+        lots:
+          type: array
+          description: Os lotes com stock, por ordem FEFO.
+          items:
+            $ref: "#/components/schemas/StockOverviewLot"
+    StockOverview:
+      type: object
+      required: [today, expiringUntil, products]
+      properties:
+        today:
+          type: string
+          format: date
+          description: O dia em Lisboa com que o stock foi calculado.
+        expiringUntil:
+          type: string
+          format: date
+          description: Último dia considerado "a expirar" (today + 3).
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/StockProduct"
+    StockAlertsRun:
+      type: object
+      required: [status, day, lowStockCount, expiringCount, expiredCount]
+      properties:
+        status:
+          type: string
+          enum: [enviado, ja_enviado, antes_da_hora, sem_alertas]
+        day:
+          type: string
+          format: date
+          description: O dia em Lisboa a que se refere o pedido.
+        delivery:
+          type: string
+          enum: [email, log]
+          description: Só quando enviado. log quer dizer que a API não tem chave do Resend e escreveu o e-mail no log.
+        lowStockCount:
+          type: integer
+          description: Produtos com stock baixo (0 antes das 07:00).
+        expiringCount:
+          type: integer
+          description: Lotes que expiram de hoje até daqui a 3 dias.
+        expiredCount:
+          type: integer
+          description: Lotes fora de validade ainda com stock.
     StockAdjustmentType:
       type: string
       enum: [ajuste, quebra]

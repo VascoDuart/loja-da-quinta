@@ -4,6 +4,7 @@ package inventory
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -55,6 +56,8 @@ type Product struct {
 	// Decimal: kg e litros aceitam casas decimais; as outras unidades não.
 	Decimal bool
 	Active  bool
+	// LowStockMilli é o limiar de stock baixo, em milésimos da unidade.
+	LowStockMilli int64
 }
 
 // NewLot é uma entrada de stock pedida por um funcionário ou gestor.
@@ -242,4 +245,163 @@ func (a Adjustment) ValidateFor(p Product) error {
 		return &ValidationError{Field: "quantityMilli", Message: "Para unidades, molhos e dúzias, a quantidade tem de ser um número inteiro."}
 	}
 	return nil
+}
+
+// ExpiringDays: um lote "expira em breve" se a validade for de hoje até daqui
+// a este número de dias (RF-11).
+const ExpiringDays = 3
+
+// LotStatus diz em que ponto da validade está um lote com stock.
+type LotStatus string
+
+const (
+	LotValid LotStatus = "valido"
+	// LotExpiringSoon inclui o lote que expira hoje: ainda se vende.
+	LotExpiringSoon LotStatus = "expira_em_breve"
+	// LotExpired já não se vende nem conta para o stock: é para dar como quebra.
+	LotExpired LotStatus = "fora_de_validade"
+)
+
+// StatusOf classifica uma validade, sendo today o dia de hoje em Lisboa.
+func StatusOf(expiresOn, today time.Time) LotStatus {
+	switch {
+	case expiresOn.Before(today):
+		return LotExpired
+	case expiresOn.After(today.AddDate(0, 0, ExpiringDays)):
+		return LotValid
+	default:
+		return LotExpiringSoon
+	}
+}
+
+// StockLot é um lote com stock, já classificado.
+type StockLot struct {
+	Lot
+	Status LotStatus
+}
+
+// ProductStock é o stock de um produto.
+type ProductStock struct {
+	Product Product
+	// SellableMilli é o que resta nos lotes dentro da validade.
+	SellableMilli int64
+	// Low: produto ativo com o stock vendável abaixo do limiar.
+	Low  bool
+	Lots []StockLot
+}
+
+// Overview é o stock da loja num dia.
+type Overview struct {
+	Today         time.Time
+	ExpiringUntil time.Time
+	Products      []ProductStock
+}
+
+// BuildOverview junta os produtos do catálogo aos lotes com stock. Mantém a
+// ordem dos produtos e a dos lotes (FEFO). Ficam os produtos ativos, mesmo sem
+// stock, e os desativados que ainda têm lotes com stock.
+func BuildOverview(products []Product, lots []Lot, today time.Time) Overview {
+	byProduct := map[uuid.UUID][]Lot{}
+	for _, l := range lots {
+		byProduct[l.ProductID] = append(byProduct[l.ProductID], l)
+	}
+	o := Overview{Today: today, ExpiringUntil: today.AddDate(0, 0, ExpiringDays), Products: []ProductStock{}}
+	for _, p := range products {
+		own := byProduct[p.ID]
+		if !p.Active && len(own) == 0 {
+			continue
+		}
+		ps := ProductStock{Product: p, Lots: make([]StockLot, len(own))}
+		for i, l := range own {
+			status := StatusOf(l.ExpiresOn, today)
+			ps.Lots[i] = StockLot{Lot: l, Status: status}
+			if status != LotExpired {
+				ps.SellableMilli += l.QtyLeftMilli
+			}
+		}
+		// A mesma regra do catálogo público: abaixo do limiar; 0 nunca dá.
+		ps.Low = p.Active && ps.SellableMilli < p.LowStockMilli
+		o.Products = append(o.Products, ps)
+	}
+	return o
+}
+
+// ProductLot é um lote com o produto a que pertence.
+type ProductLot struct {
+	Product Product
+	Lot     Lot
+}
+
+// Report é o que há a avisar num dia.
+type Report struct {
+	Day           time.Time
+	ExpiringUntil time.Time
+	Low           []ProductStock
+	Expiring      []ProductLot
+	Expired       []ProductLot
+}
+
+// Report tira da consulta o que pede atenção. Os lotes vêm pela validade (o
+// mais urgente primeiro) e, no mesmo dia, pela ordem dos produtos.
+func (o Overview) Report() Report {
+	r := Report{Day: o.Today, ExpiringUntil: o.ExpiringUntil}
+	for _, p := range o.Products {
+		if p.Low {
+			r.Low = append(r.Low, p)
+		}
+		for _, l := range p.Lots {
+			switch l.Status {
+			case LotExpiringSoon:
+				r.Expiring = append(r.Expiring, ProductLot{Product: p.Product, Lot: l.Lot})
+			case LotExpired:
+				r.Expired = append(r.Expired, ProductLot{Product: p.Product, Lot: l.Lot})
+			}
+		}
+	}
+	byExpiry := func(a, b ProductLot) int { return a.Lot.ExpiresOn.Compare(b.Lot.ExpiresOn) }
+	slices.SortStableFunc(r.Expiring, byExpiry)
+	slices.SortStableFunc(r.Expired, byExpiry)
+	return r
+}
+
+// Empty: não há nada a avisar.
+func (r Report) Empty() bool { return len(r.Low)+len(r.Expiring)+len(r.Expired) == 0 }
+
+// Datas como se escrevem em Portugal.
+const ptDate = "02/01/2006"
+
+// Message escreve o e-mail do alerta, em texto simples. Só mostra as secções
+// com alguma coisa.
+func (r Report) Message() (subject, text string) {
+	subject = "Loja da Quinta: alertas de stock de " + r.Day.Format(ptDate)
+
+	var b strings.Builder
+	section := func(title string, lines []string) {
+		if len(lines) == 0 {
+			return
+		}
+		fmt.Fprintf(&b, "\n%s (%d)\n", title, len(lines))
+		for _, l := range lines {
+			b.WriteString("- " + l + "\n")
+		}
+	}
+	lots := func(list []ProductLot) []string {
+		out := make([]string, len(list))
+		for i, pl := range list {
+			out[i] = fmt.Sprintf("%s: %s, validade %s",
+				pl.Product.Name, FormatQuantity(pl.Lot.QtyLeftMilli, pl.Lot.Unit), pl.Lot.ExpiresOn.Format(ptDate))
+		}
+		return out
+	}
+	low := make([]string, len(r.Low))
+	for i, p := range r.Low {
+		low[i] = fmt.Sprintf("%s: %s para vender (limiar: %s)", p.Product.Name,
+			FormatQuantity(p.SellableMilli, p.Product.Unit), FormatQuantity(p.Product.LowStockMilli, p.Product.Unit))
+	}
+
+	b.WriteString("Bom dia. Isto é o que pede atenção no stock a " + r.Day.Format(ptDate) + ".\n")
+	section("Stock baixo", low)
+	section("A expirar até "+r.ExpiringUntil.Format(ptDate), lots(r.Expiring))
+	section("Fora de validade, para dar como quebra", lots(r.Expired))
+	return subject, b.String()
 }

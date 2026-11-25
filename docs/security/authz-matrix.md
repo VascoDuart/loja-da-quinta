@@ -27,14 +27,23 @@ O valor por omissão da spec é `bearerAuth: []`, que não deixa ninguém entrar
 | `GET /reports/*` | 401 | 403 | ✓ |
 | `GET` · `POST /users` · `PATCH /users/{id}` | 401 | 403 | ✓ |
 | `GET /audit` | 401 | 403 | ✓ |
+| `POST /jobs/stock-alerts` | 401 | 401 | 401 |
 
 **401** quando não há sessão; **403** quando há sessão mas o papel não chega.
+
+## Jobs agendados
+
+`POST /jobs/stock-alerts` não é de nenhum utilizador: só aceita o token dos jobs no cabeçalho `X-Job-Token` (esquema `jobToken` da spec, [ADR-0015](../adr/0015-alertas-diarios-por-agendamento-externo.md)). Uma sessão, mesmo de gestor, recebe `401`; e o token não abre mais nenhum endpoint. A comparação é em tempo constante e, sem `JOBS_TOKEN` configurado, ninguém entra. Como nas públicas, a operação tem de estar numa lista do teste (`jobOperations`) e declarar só esse esquema, sem papéis.
+
+## Notas por endpoint
 
 Regras de `/users` além do papel: não há `DELETE` (um utilizador fica no histórico e só se desativa), e o gestor não pode desativar nem despromover a própria conta (`409`), para haver sempre um gestor ativo. O serviço `users` volta a verificar o papel, mesmo depois do RBAC da API.
 
 `POST /stock/lots` (entrada de stock) é para o funcionário e o gestor. O serviço `inventory` volta a verificar o papel, e o autor do movimento vem sempre da sessão, nunca do pedido (um campo a mais no corpo dá `400`).
 
 `POST /stock/adjustments` (ajustes e quebras) é só para o gestor. O serviço `inventory` volta a verificar o papel, o autor vem da sessão e o motivo é obrigatório. `GET /stock/lots` (os lotes de um produto, para o ecrã de ajustes) é uma leitura para o funcionário e o gestor, como `GET /stock`. Mudar a unidade de um produto que já tem lotes dá `409` a toda a gente, gestor incluído.
+
+`GET /stock` (a consulta por produto e por lote) é para o funcionário e o gestor, e o serviço `inventory` volta a verificar o papel. Mostra quantidades e o limiar de stock baixo, que nunca saem no catálogo público.
 
 `GET /public/catalog` é público e igual para toda a gente: só devolve produtos ativos e visíveis no catálogo (`isPublic`), com os campos do DTO `CatalogItem` (nome, categoria, unidade, preço por unidade, época, imagem e disponibilidade). Nunca devolve quantidades, IVA, limiar de stock, estado "ativo" nem datas, mesmo a um gestor autenticado: o backoffice usa `GET /products`. A disponibilidade vem do stock real (só os lotes dentro da validade): sem stock, o produto aparece esgotado. A resposta tem `Cache-Control: public, max-age=60`.
 

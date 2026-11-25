@@ -5,9 +5,11 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net/mail"
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -52,6 +54,18 @@ type Config struct {
 	// depois de uma troca de chave ("kid:pub,kid:pub").
 	JWTVerifyKeys string
 
+	// JobsToken abre os endpoints dos jobs agendados (cabeçalho X-Job-Token,
+	// ADR-0015). Obrigatório fora do ambiente local; localmente, sem ele, os
+	// jobs recusam todos os pedidos.
+	JobsToken string
+	// ResendAPIKey envia os alertas pelo Resend. Sem ela, vão para o log.
+	ResendAPIKey string
+	// AlertsFrom é o remetente dos alertas. Sem domínio próprio no Resend, só
+	// o endereço de testes onboarding@resend.dev.
+	AlertsFrom string
+	// AlertsTo, se tiver endereços, substitui os gestores como destinatários.
+	AlertsTo []string
+
 	MaxBodyBytes    int64
 	RequestTimeout  time.Duration
 	ShutdownTimeout time.Duration
@@ -79,9 +93,15 @@ func FromLookup(lookup func(string) (string, bool)) (Config, error) {
 		RateLimitBurst:   r.int("RATE_LIMIT_BURST", 100),
 		JWTSigningKey:    r.str("JWT_SIGNING_KEY", ""),
 		JWTVerifyKeys:    r.str("JWT_VERIFY_KEYS", ""),
-		MaxBodyBytes:     int64(r.int("MAX_BODY_BYTES", 1<<20)),
-		RequestTimeout:   r.duration("REQUEST_TIMEOUT", 10*time.Second),
-		ShutdownTimeout:  r.duration("SHUTDOWN_TIMEOUT", 15*time.Second),
+		// Colados num painel ou lidos de um ficheiro, os segredos trazem às
+		// vezes uma mudança de linha.
+		JobsToken:       strings.TrimSpace(r.str("JOBS_TOKEN", "")),
+		ResendAPIKey:    strings.TrimSpace(r.str("RESEND_API_KEY", "")),
+		AlertsFrom:      r.str("ALERTS_FROM", "Loja da Quinta <onboarding@resend.dev>"),
+		AlertsTo:        r.list("ALERTS_TO"),
+		MaxBodyBytes:    int64(r.int("MAX_BODY_BYTES", 1<<20)),
+		RequestTimeout:  r.duration("REQUEST_TIMEOUT", 10*time.Second),
+		ShutdownTimeout: r.duration("SHUTDOWN_TIMEOUT", 15*time.Second),
 	}
 
 	errs := r.errs
@@ -122,11 +142,38 @@ func (c Config) validate() []error {
 	if c.RequestTimeout <= 0 || c.ShutdownTimeout <= 0 {
 		errs = append(errs, errors.New("REQUEST_TIMEOUT e SHUTDOWN_TIMEOUT têm de ser positivos"))
 	}
+	errs = append(errs, c.validateJobs()...)
 	if c.DatabaseURL != "" {
 		errs = append(errs, c.validateDatabaseURL()...)
 	}
 	if c.Env != EnvDevelopment && c.JWTSigningKey == "" {
 		errs = append(errs, fmt.Errorf("JWT_SIGNING_KEY é obrigatória em %s", c.Env))
+	}
+	return errs
+}
+
+// MinJobsTokenLen é o tamanho mínimo do token dos jobs
+// (openssl rand -hex 32 dá 64).
+const MinJobsTokenLen = 32
+
+// As mensagens nunca repetem o valor do token.
+func (c Config) validateJobs() []error {
+	var errs []error
+	switch {
+	case c.JobsToken == "" && c.Env != EnvDevelopment:
+		errs = append(errs, fmt.Errorf("JOBS_TOKEN é obrigatória em %s", c.Env))
+	case c.JobsToken != "" && (len(c.JobsToken) < MinJobsTokenLen ||
+		strings.IndexFunc(c.JobsToken, func(r rune) bool { return r <= ' ' || r > '~' }) >= 0):
+		errs = append(errs, fmt.Errorf("JOBS_TOKEN tem de ter pelo menos %d caracteres ASCII, sem espaços", MinJobsTokenLen))
+	}
+	if _, err := mail.ParseAddress(c.AlertsFrom); err != nil {
+		errs = append(errs, errors.New("ALERTS_FROM tem de ser um endereço de e-mail"))
+	}
+	for _, to := range c.AlertsTo {
+		if a, err := mail.ParseAddress(to); err != nil || a.Address != to {
+			errs = append(errs, errors.New("ALERTS_TO tem de ser uma lista de endereços separados por vírgulas"))
+			break
+		}
 	}
 	return errs
 }
@@ -164,6 +211,17 @@ func (r *reader) str(key, def string) string {
 		return v
 	}
 	return def
+}
+
+// list lê uma lista separada por vírgulas; vazia sem a variável.
+func (r *reader) list(key string) []string {
+	var out []string
+	for _, item := range strings.Split(r.str(key, ""), ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 func (r *reader) required(key string) string {

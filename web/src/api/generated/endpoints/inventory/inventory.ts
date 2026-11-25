@@ -31,8 +31,10 @@ import type {
   ProblemResponse,
   StockAdjustment,
   StockAdjustmentInput,
+  StockAlertsRun,
   StockLot,
-  StockLotInput
+  StockLotInput,
+  StockOverview
 } from '../../model';
 
 import { apiFetch } from '../../../http';
@@ -107,7 +109,7 @@ export const getListStockLotsUrl = (params: ListStockLotsParams,) => {
  * para se poderem dar como quebra) ou que ainda estão dentro da
  * validade (um lote que ficou a 0 por engano ainda se pode corrigir).
  * Ordenados por validade, como sai o stock (FEFO), no máximo 200. A
- * consulta completa do stock e os alertas chegam com GET /stock (#14).
+ * consulta do stock de todos os produtos é o GET /stock.
  * @summary Lotes de um produto
  */
 export const listStockLots = async (params: ListStockLotsParams, options?: Parameters<typeof apiFetch>[1]): Promise<listStockLotsResponse> => {
@@ -468,4 +470,238 @@ export const useCreateStockAdjustment = <TError = ErrorType<ProblemResponse>,
         TContext
       > => {
       return useMutation(getCreateStockAdjustmentMutationOptions(options), queryClient);
+    }
+    export type getStockOverviewResponse200 = {
+  data: StockOverview
+  status: 200
+}
+
+export type getStockOverviewResponse401 = {
+  data: ProblemResponse
+  status: 401
+}
+
+export type getStockOverviewResponse403 = {
+  data: ProblemResponse
+  status: 403
+}
+
+export type getStockOverviewResponseSuccess = (getStockOverviewResponse200) & {
+  headers: Headers;
+};
+export type getStockOverviewResponseError = (getStockOverviewResponse401 | getStockOverviewResponse403) & {
+  headers: Headers;
+};
+
+export type getStockOverviewResponse = (getStockOverviewResponseSuccess | getStockOverviewResponseError)
+
+export const getGetStockOverviewUrl = () => {
+
+
+
+
+  return `/api/v1/stock`
+}
+
+/**
+ * Os produtos ativos (mesmo sem stock) e os desativados que ainda têm
+ * lotes com stock, por nome. Para cada um: o stock vendável (só os lotes
+ * dentro da validade, na hora de Lisboa; um lote que expira hoje ainda
+ * conta), se está abaixo do limiar de stock baixo (só nos produtos
+ * ativos) e os lotes com stock, por ordem FEFO, cada um com o seu
+ * estado: valido, expira_em_breve (a validade é de hoje até daqui a 3
+ * dias) ou fora_de_validade (não se vende: o gestor dá-o como quebra).
+ * @summary Consulta do stock por produto e por lote
+ */
+export const getStockOverview = async ( options?: Parameters<typeof apiFetch>[1]): Promise<getStockOverviewResponse> => {
+
+  return apiFetch<getStockOverviewResponse>(getGetStockOverviewUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStockOverviewQueryKey = () => {
+    return [
+    `/api/v1/stock`
+    ] as const;
+    }
+
+
+export const getGetStockOverviewQueryOptions = <TData = Awaited<ReturnType<typeof getStockOverview>>, TError = ErrorType<ProblemResponse>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStockOverview>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStockOverviewQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStockOverview>>> = ({ signal }) => getStockOverview({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStockOverview>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetStockOverviewQueryResult = NonNullable<Awaited<ReturnType<typeof getStockOverview>>>
+export type GetStockOverviewQueryError = ErrorType<ProblemResponse>
+
+
+export function useGetStockOverview<TData = Awaited<ReturnType<typeof getStockOverview>>, TError = ErrorType<ProblemResponse>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStockOverview>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getStockOverview>>,
+          TError,
+          Awaited<ReturnType<typeof getStockOverview>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetStockOverview<TData = Awaited<ReturnType<typeof getStockOverview>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStockOverview>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getStockOverview>>,
+          TError,
+          Awaited<ReturnType<typeof getStockOverview>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetStockOverview<TData = Awaited<ReturnType<typeof getStockOverview>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStockOverview>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Consulta do stock por produto e por lote
+ */
+
+export function useGetStockOverview<TData = Awaited<ReturnType<typeof getStockOverview>>, TError = ErrorType<ProblemResponse>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStockOverview>>, TError, TData>>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetStockOverviewQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export type runStockAlertsResponse200 = {
+  data: StockAlertsRun
+  status: 200
+}
+
+export type runStockAlertsResponse401 = {
+  data: ProblemResponse
+  status: 401
+}
+
+export type runStockAlertsResponse502 = {
+  data: ProblemResponse
+  status: 502
+}
+
+export type runStockAlertsResponseSuccess = (runStockAlertsResponse200) & {
+  headers: Headers;
+};
+export type runStockAlertsResponseError = (runStockAlertsResponse401 | runStockAlertsResponse502) & {
+  headers: Headers;
+};
+
+export type runStockAlertsResponse = (runStockAlertsResponseSuccess | runStockAlertsResponseError)
+
+export const getRunStockAlertsUrl = () => {
+
+
+
+
+  return `/api/v1/jobs/stock-alerts`
+}
+
+/**
+ * Sem sessão de utilizador: só aceita o token próprio dos jobs, no
+ * cabeçalho X-Job-Token (ADR-0015). A partir das 07:00 de Lisboa, envia
+ * aos gestores o stock baixo, os lotes a expirar e os fora de validade,
+ * no máximo uma vez por dia: é seguro repetir o pedido. Sem nada a
+ * avisar, não envia nem marca o dia. Se o envio falhar, responde 502 e o
+ * pedido seguinte volta a tentar.
+ * @summary Envia o alerta diário de stock (chamado pelo agendamento)
+ */
+export const runStockAlerts = async ( options?: Parameters<typeof apiFetch>[1]): Promise<runStockAlertsResponse> => {
+
+  return apiFetch<runStockAlertsResponse>(getRunStockAlertsUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRunStockAlertsMutationKey = () => ['runStockAlerts'] as const;
+
+export const getRunStockAlertsMutationOptions = <TError = ErrorType<ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runStockAlerts>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runStockAlerts>>, TError,void, TContext> => {
+
+const mutationKey = getRunStockAlertsMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runStockAlerts>>, void> = () => {
+
+
+          return  runStockAlerts(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunStockAlertsMutationResult = NonNullable<Awaited<ReturnType<typeof runStockAlerts>>>
+
+    export type RunStockAlertsMutationError = ErrorType<ProblemResponse>
+
+
+    /**
+ * @summary Envia o alerta diário de stock (chamado pelo agendamento)
+ */
+export const useRunStockAlerts = <TError = ErrorType<ProblemResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runStockAlerts>>, TError,void, TContext>, request?: SecondParameter<typeof apiFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof runStockAlerts>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRunStockAlertsMutationOptions(options), queryClient);
     }

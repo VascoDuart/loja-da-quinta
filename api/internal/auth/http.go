@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/subtle"
 	"errors"
 	"net/http"
 	"slices"
@@ -109,13 +111,46 @@ func (s *Service) Authenticate(next http.Handler) http.Handler {
 	})
 }
 
-// Authorize é a função de autenticação do validador OpenAPI. Os papéis com
-// acesso vêm da lista do bearerAuth em cada operação; uma lista vazia (o
-// valor por omissão da spec) não deixa ninguém entrar.
-func Authorize(_ context.Context, in *openapi3filter.AuthenticationInput) error {
-	if in.SecuritySchemeName != "bearerAuth" {
-		return identity.ErrForbidden
+// JobTokenHeader é o cabeçalho com o token dos jobs agendados (esquema
+// jobToken da OpenAPI, ADR-0015).
+const JobTokenHeader = "X-Job-Token"
+
+// Authorizer devolve a função de autenticação do validador OpenAPI, que
+// decide cada operação pelo esquema que a spec lhe dá:
+//
+//   - bearerAuth: a sessão de um utilizador com um dos papéis da operação;
+//   - jobToken: o token dos jobs, e só ele (uma sessão não serve). Sem
+//     jobToken configurado, ninguém entra.
+//
+// Um esquema que não esteja aqui não deixa ninguém entrar.
+func Authorizer(jobToken string) openapi3filter.AuthenticationFunc {
+	// Compara-se o hash, para o tempo não depender nem do conteúdo nem do
+	// tamanho do token.
+	expected := sha256.Sum256([]byte(jobToken))
+	return func(_ context.Context, in *openapi3filter.AuthenticationInput) error {
+		switch in.SecuritySchemeName {
+		case "bearerAuth":
+			return authorizeSession(in)
+		case "jobToken":
+			// Um job não tem papéis: uma lista na spec é um engano.
+			if len(in.Scopes) != 0 {
+				return identity.ErrForbidden
+			}
+			got := sha256.Sum256([]byte(in.RequestValidationInput.Request.Header.Get(JobTokenHeader)))
+			if subtle.ConstantTimeCompare(got[:], expected[:]) != 1 || jobToken == "" {
+				return identity.ErrUnauthenticated
+			}
+			return nil
+		default:
+			return identity.ErrForbidden
+		}
 	}
+}
+
+// authorizeSession decide uma operação com bearerAuth. Os papéis com acesso
+// vêm da lista da operação; uma lista vazia (o valor por omissão da spec) não
+// deixa ninguém entrar.
+func authorizeSession(in *openapi3filter.AuthenticationInput) error {
 	ctx := in.RequestValidationInput.Request.Context()
 	p, ok := identity.From(ctx)
 	if !ok {

@@ -103,8 +103,8 @@ Para usar o DBeaver: ligação PostgreSQL a `localhost:5432`, base de dados `loj
 - [x] Pipeline de CI e análise de segurança
 - [x] Esqueleto do frontend e deploy em staging
 - [x] Autenticação e utilizadores (UC-01, UC-02)
-- [ ] Produtos e categorias (UC-03), catálogo público (UC-10)
-- [ ] Stock por lotes (UC-04, UC-05, UC-09)
+- [x] Produtos e categorias (UC-03), catálogo público (UC-10)
+- [x] Stock por lotes (UC-04, UC-05, UC-09)
 - [ ] Vendas ao balcão (UC-06, UC-07)
 - [ ] Relatórios e auditoria (UC-08, UC-11)
 - [ ] v1.0.0 em produção

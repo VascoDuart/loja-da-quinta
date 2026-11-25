@@ -1,13 +1,15 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { type FormEvent, useRef, useState } from 'react'
 import { Link } from 'react-router'
 
 import { useListProducts } from '../../api/generated/endpoints/catalog/catalog'
-import { createStockLot } from '../../api/generated/endpoints/inventory/inventory'
+import { createStockLot, getGetStockOverviewQueryKey } from '../../api/generated/endpoints/inventory/inventory'
 import type { Product, StockLot, Unit } from '../../api/generated/model'
 import { errorMessage } from '../../api/http'
 import { formatDate, formatQuantity, lisbonToday, parseQuantityToMilli } from '../../shared/lib/format'
 import { Alert, Button, SelectField, TextField } from '../../shared/ui/ui'
 import { useSession } from '../auth/session'
+import { StockConsulta } from './StockConsulta'
 import './StockPage.css'
 
 const unitShort: Record<Unit, string> = { kg: 'kg', l: 'L', un: 'unidades', molho: 'molhos', duzia: 'dúzias' }
@@ -24,15 +26,16 @@ function describe({ lot, product }: Registered): string {
 }
 
 /**
- * Entrada de stock por lotes (UC-04). A quantidade escrita é convertida em
- * milésimos aqui, na fronteira (ADR-0009). A consulta do stock e os alertas
- * chegam com o #14. Os ajustes e as quebras (só o gestor) estão em
- * /app/stock/ajustes.
+ * Ecrã de stock: a entrada por lotes (UC-04) e, por baixo, a consulta por
+ * produto e por lote (UC-09). A quantidade escrita é convertida em milésimos
+ * aqui, na fronteira (ADR-0009). Os ajustes e as quebras (só o gestor) estão
+ * em /app/stock/ajustes.
  */
 export default function StockPage() {
   const session = useSession()
   const isGestor = session.status === 'authenticated' && session.user.role === 'gestor'
   const products = useListProducts()
+  const queryClient = useQueryClient()
   const active = products.data?.status === 200 ? products.data.data.filter((p) => p.active) : undefined
 
   // "Hoje" é o dia de Lisboa, como na API; fica fixo enquanto a página está aberta.
@@ -83,6 +86,7 @@ export default function StockPage() {
     try {
       const res = await createStockLot({ productId: product.id, quantityMilli: checked.milli, harvestedOn, expiresOn })
       if (res.status === 201) {
+        void queryClient.invalidateQueries({ queryKey: getGetStockOverviewQueryKey() })
         setRegistered((cur) => [{ lot: res.data, product }, ...cur])
         // Limpa a quantidade e a validade: repetir o envio obriga a escrevê-las de novo.
         setQuantity('')
@@ -179,6 +183,8 @@ export default function StockPage() {
           </ul>
         </section>
       )}
+
+      <StockConsulta isGestor={isGestor} />
     </div>
   )
 }

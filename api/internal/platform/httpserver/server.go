@@ -43,6 +43,15 @@ var uploadLimits = mw.RouteLimits{
 	Limits: mw.Limits{MaxBody: 5<<20 + 64<<10, Timeout: 30 * time.Second},
 }
 
+// O job dos alertas fala com um serviço de e-mail e pode apanhar a base de
+// dados a acordar: tem mais tempo do que um pedido normal. Não leva corpo.
+var jobLimits = mw.RouteLimits{
+	Match: func(r *http.Request) bool {
+		return r.Method == http.MethodPost && r.URL.Path == BasePath+"/jobs/stock-alerts"
+	},
+	Limits: mw.Limits{MaxBody: 4 << 10, Timeout: 25 * time.Second},
+}
+
 // NewHandler devolve o handler HTTP completo: middleware, validação contra a
 // OpenAPI (incluindo os papéis de cada operação) e as rotas geradas.
 func NewHandler(cfg config.Config, log *slog.Logger, api gen.StrictServerInterface, sec Security) (http.Handler, error) {
@@ -118,8 +127,8 @@ func NewHandler(cfg config.Config, log *slog.Logger, api gen.StrictServerInterfa
 		mw.SecurityHeaders(cfg.Env != config.EnvDevelopment),
 		mw.ClientIPContext(cfg.TrustedProxyHops),
 		mw.RateLimit(cfg.RateLimitRPS, cfg.RateLimitBurst),
-		mw.MaxBody(cfg.MaxBodyBytes, uploadLimits),
-		mw.Timeout(cfg.RequestTimeout, uploadLimits),
+		mw.MaxBody(cfg.MaxBodyBytes, uploadLimits, jobLimits),
+		mw.Timeout(cfg.RequestTimeout, uploadLimits, jobLimits),
 		authenticate,
 		// Fora do router gerado, e não por rota: o código gerado lê os
 		// parâmetros (cabeçalhos, query) antes dos middlewares de cada rota, e

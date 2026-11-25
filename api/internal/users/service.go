@@ -70,6 +70,23 @@ func (s *Service) GetActive(ctx context.Context, id uuid.UUID) (User, error) {
 	return u, nil
 }
 
+// ActiveManagerEmails devolve os e-mails dos gestores ativos, para os avisos
+// da loja (alertas de stock). Não recebe quem pede: só serve a outros módulos,
+// nunca um pedido de um utilizador.
+func (s *Service) ActiveManagerEmails(ctx context.Context) ([]string, error) {
+	all, err := s.repo.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	for _, u := range all {
+		if u.Active && u.Role == identity.RoleGestor {
+			out = append(out, u.Email)
+		}
+	}
+	return out, nil
+}
+
 // Create cria um utilizador sem verificar quem pede: só para o comando
 // createuser, que corre com acesso direto à base de dados.
 func (s *Service) Create(ctx context.Context, n NewUser) (User, error) {

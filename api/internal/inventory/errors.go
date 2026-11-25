@@ -18,6 +18,13 @@ var errProductKey = errors.New("o produto ou a unidade do lote já não existe")
 // ErrLotNotFound: o lote do ajuste não existe.
 var ErrLotNotFound = errors.New("o lote não existe")
 
+// ErrAlertNotSent: o serviço de e-mail falhou. O dia fica livre para o
+// disparo seguinte voltar a tentar.
+var ErrAlertNotSent = errors.New("o alerta de stock não foi enviado")
+
+// ErrNoRecipients: não há gestores ativos nem destinatários configurados.
+var ErrNoRecipients = errors.New("não há a quem enviar o alerta de stock")
+
 // InsufficientStockError: a saída deixaria o lote com stock negativo. Nada
 // se grava (409). LeftMilli é o que resta no lote, na unidade Unit.
 type InsufficientStockError struct {

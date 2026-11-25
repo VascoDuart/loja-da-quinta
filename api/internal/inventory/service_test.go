@@ -3,6 +3,8 @@ package inventory
 import (
 	"context"
 	"errors"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -113,7 +115,10 @@ type fakeRepo struct {
 	asked     []uuid.UUID
 	today     time.Time
 	levels    map[uuid.UUID]int64
+	stocked   []Lot
 }
+
+func (f *fakeRepo) StockedLots(context.Context) ([]Lot, error) { return f.stocked, nil }
 
 func (f *fakeRepo) CreateLot(_ context.Context, in NewLot, unit string, userID uuid.UUID) (Lot, error) {
 	if f.keyErr {
@@ -170,9 +175,20 @@ func (f fakeProducts) Product(_ context.Context, id uuid.UUID) (Product, error) 
 	return p, nil
 }
 
+func (f fakeProducts) Products(context.Context) ([]Product, error) {
+	out := make([]Product, 0, len(f))
+	for _, p := range f {
+		out = append(out, p)
+	}
+	slices.SortFunc(out, func(a, b Product) int { return strings.Compare(a.Name, b.Name) })
+	return out, nil
+}
+
 // vanishing devolve o produto na primeira pergunta e depois já não o
 // encontra (foi apagado entre a validação e a gravação).
 type vanishing struct{ p Product }
+
+func (v *vanishing) Products(context.Context) ([]Product, error) { return nil, nil }
 
 func (v *vanishing) Product(context.Context, uuid.UUID) (Product, error) {
 	if v.p.ID == uuid.Nil {
