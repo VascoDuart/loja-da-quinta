@@ -21,3 +21,4 @@ Para um novo ADR, copia [`template.md`](template.md) e usa o número seguinte.
 | [0013](0013-design-system-horta-fresca.md) | Design system "Horta Fresca" com modo claro e escuro | Aceite |
 | [0014](0014-imagens-dos-produtos-no-postgresql.md) | Imagens dos produtos no PostgreSQL, servidas pela CDN | Aceite |
 | [0015](0015-alertas-diarios-por-agendamento-externo.md) | Alertas diários disparados pelo GitHub Actions | Aceite |
+| [0016](0016-sem-api-gateway-dedicado.md) | Sem API Gateway dedicado: a borda é o rewrite da Vercel e a segurança fica na API | Aceite |
