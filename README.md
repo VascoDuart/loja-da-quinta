@@ -39,7 +39,7 @@ flowchart LR
 | Área | Documentos |
 |---|---|
 | Requisitos | [Casos de uso](docs/requirements/use-cases.md) · [Funcionais](docs/requirements/functional.md) · [Não funcionais](docs/requirements/non-functional.md) |
-| Arquitetura | [Visão geral (C4)](docs/architecture/overview.md) · [Backend](docs/architecture/backend.md) · [Frontend](docs/architecture/frontend.md) · [Modelo de dados](docs/architecture/data-model.md) |
+| Arquitetura | [Visão geral (C4)](docs/architecture/overview.md) · [Backend](docs/architecture/backend.md) · [Frontend](docs/architecture/frontend.md) · [Modelo de dados](docs/architecture/data-model.md) · [DevOps](docs/architecture/devops.md) |
 | Decisões | [ADRs](docs/adr/README.md) |
 | Design | [Design system](docs/design/design-system.md) |
 | Segurança | [Controlos](docs/security/controls.md) · [Modelo de ameaças](docs/security/threat-model.md) · [Matriz de autorização](docs/security/authz-matrix.md) · [ASVS](docs/security/asvs-checklist.md) · [Política](SECURITY.md) |
