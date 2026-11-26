@@ -72,8 +72,8 @@ web/src/
 
 ## Convenções
 
-- **O estado do servidor fica no TanStack Query** e o estado de UI fica local (carrinho da venda com `useReducer`). Sem Redux.
-- **Ecrã de venda pensado para tablet:** alvos de toque de pelo menos 44 px, teclado numérico e pesquisa com debounce.
+- **O estado do servidor fica no TanStack Query** e o estado de UI fica local (o carrinho da venda é estado do ecrã, em memória: sobrevive à renovação da sessão e nunca vai para o `localStorage`). Sem Redux.
+- **Ecrã de venda pensado para tablet:** alvos de toque de pelo menos 44 px, teclado numérico (`inputMode` decimal ou numérico, conforme a unidade) e pesquisa sem acentos sobre a lista de produtos já carregada. O total à vista é só uma pré-visualização: o servidor volta a calcular tudo. A `Idempotency-Key` (`crypto.randomUUID()`) é a mesma enquanto o carrinho não muda, para uma repetição depois de uma falha de rede nunca gravar a venda duas vezes.
 - **Estado de arranque a frio:** se a API demorar mais de 3 s, aparece “a acordar o servidor”.
 - **`dangerouslySetInnerHTML` proibido** por regra de ESLint.
 - **Testes:** Vitest + Testing Library nos componentes, MSW para simular a API, Playwright + axe-core nos fluxos E2E.

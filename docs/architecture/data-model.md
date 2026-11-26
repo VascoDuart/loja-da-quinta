@@ -86,28 +86,35 @@ erDiagram
     }
     sales {
         uuid id PK
-        text number UK
+        text number UK "V-000042, sequência"
         uuid user_id FK
         text payment "numerario | mbway"
-        int total_cents
+        bigint total_cents "IVA incluído"
+        bigint vat_cents "IVA contido no total"
         text status "concluida | anulada"
+        text idempotency_key "UK com user_id"
+        bytea request_hash
         timestamptz created_at
         timestamptz updated_at
     }
     sale_items {
         uuid id PK
         uuid sale_id FK
-        uuid product_id FK
+        uuid product_id FK "UK com sale_id"
+        text product_name "o da altura"
+        text unit "a da altura"
         numeric quantity "12,3"
-        int unit_price_cents
+        bigint unit_price_cents "com IVA"
         smallint vat_rate
+        bigint line_total_cents
+        bigint vat_cents
     }
     stock_movements {
         bigint id PK
         uuid lot_id FK
         text type "entrada | venda | ajuste | quebra | anulacao"
         numeric quantity "12,3 com sinal"
-        uuid sale_id FK "null, chega com as vendas (#15)"
+        uuid sale_id FK "só em venda e anulacao"
         uuid user_id FK
         text reason "null"
         timestamptz created_at
@@ -123,7 +130,10 @@ erDiagram
 - **Consulta do stock** (`GET /stock`, funcionário e gestor, RF-11): os produtos ativos (mesmo sem stock) e os desativados que ainda têm lotes com stock. Por produto, o stock vendável (lotes dentro da validade), `low` (produto ativo com o vendável **abaixo** do limiar; limiar 0 nunca dá) e os lotes com stock, cada um `valido`, `expira_em_breve` (validade de hoje a hoje + 3 dias) ou `fora_de_validade`. O `inventory` lê os seus lotes e pede os produtos ao catálogo; não há limite de lotes, para as somas estarem certas.
 - **Alertas diários:** `stock_alert_runs` (`day date` como chave primária, `created_at`) guarda os dias de Lisboa em que o alerta saiu ([ADR-0015](../adr/0015-alertas-diarios-por-agendamento-externo.md)). Não se liga a mais nenhuma tabela.
 - **A unidade de um produto com lotes não muda.** As quantidades dos lotes estão na unidade do produto: passar de kg para unidades leria 12,5 kg como 12,5 unidades. O catálogo recusa a mudança (`409`) perguntando ao `inventory` se o produto tem lotes (porta `catalog.LotChecker`). Como entre essa pergunta e a gravação pode entrar um lote, a garantia está na base de dados: cada lote guarda a unidade em que a quantidade foi validada, com uma chave estrangeira composta `(product_id, unit) → products (id, unit)` com `ON UPDATE RESTRICT` (migração 00005). Com `(id, unit)` numa chave única, mudar a unidade é uma atualização de chave e bloqueia a linha do produto com `FOR UPDATE`, que choca com o `FOR KEY SHARE` de quem insere um lote: quem chega em segundo espera pelo outro e é recusado (a mudança de unidade com `409`, ou o lote com `409` se a unidade mudou enquanto era registado). Editar o preço, o nome ou o resto do produto não toca na chave e não bloqueia as entradas de stock.
-- **A quantidade de um movimento tem sinal:** entra no lote (`entrada`, `anulacao`) ou sai dele (`venda`, `quebra`); um `ajuste` pode ir para os dois lados. Um `CHECK` garante o sinal de cada tipo. A coluna `sale_id` chega com a tabela `sales` (#15), já com a chave estrangeira.
+- **A quantidade de um movimento tem sinal:** entra no lote (`entrada`, `anulacao`) ou sai dele (`venda`, `quebra`); um `ajuste` pode ir para os dois lados. Um `CHECK` garante o sinal de cada tipo. Os movimentos `venda` e `anulacao` apontam para a venda (`sale_id`); os outros nunca (outro `CHECK`, migração 00007).
+- **Venda ao balcão** (`POST /sales`, funcionário e gestor, UC-06, RF-07 a RF-09). O cliente envia só o pagamento e, por linha, o produto e a quantidade em milésimos; linhas do mesmo produto juntam-se numa só. O preço (com IVA) e a taxa de IVA vêm do catálogo, pela porta `sales.Products`. Cada linha arredonda ao cêntimo, meio para cima, e o total é a soma das linhas; o IVA de cada linha é o contido no preço (`total × taxa / (100 + taxa)`, arredondado da mesma forma). Numa só transação: grava-se a venda, e o `inventory` (`TakeForSale`, com o `pgx.Tx` da venda) bloqueia, produto a produto por ordem do id, os lotes dentro da validade pela ordem FEFO (`expires_on, created_at`, `FOR UPDATE`), tira de cada um com o mesmo `applyMovement` dos ajustes e grava um movimento `venda` por lote; por fim gravam-se as linhas. Bloquear sempre pela mesma ordem evita deadlocks entre duas vendas. Se um produto não tiver que chegue, a transação é desfeita e a resposta é `409` com o produto e o que há à venda. Um lote fora de validade nunca se vende.
+- **Idempotência da venda:** `UNIQUE (user_id, idempotency_key)`. O `INSERT` da venda é o primeiro passo da transação, com `ON CONFLICT DO NOTHING`: um segundo pedido com a mesma chave espera pelo primeiro no índice único e nunca toca no stock. O `request_hash` (SHA-256 do pagamento e das linhas já juntas e ordenadas) distingue uma repetição (`200` com a venda gravada) de outro carrinho com a mesma chave (`422`). A chave fica guardada com a venda, sem prazo. Uma venda recusada (`409`) não gasta a chave.
+- **O número da venda** (`V-000042`) vem de uma sequência e pode ter buracos (uma venda desfeita gasta um número). Não é uma série de faturas ([ADR-0011](../adr/0011-venda-nao-e-documento-fiscal.md)).
 - **Movimentos só de acrescento:** um trigger recusa `UPDATE`, `DELETE` e `TRUNCATE` em `stock_movements` a toda a gente, incluindo o dono das tabelas, e o papel `app` só tem `INSERT` e `SELECT` (a migração tira-lhe o resto). Corrigir um engano é registar outro movimento.
 - **Dinheiro em cêntimos inteiros** e quantidades em `numeric(12,3)` para pesos em kg e volumes em litros ([ADR-0009](../adr/0009-dinheiro-em-centimos.md)).
 - **As linhas da venda guardam o preço e o IVA da altura**, para que mudar um preço não altere vendas antigas.

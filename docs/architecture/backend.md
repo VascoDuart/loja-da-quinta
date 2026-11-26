@@ -21,7 +21,7 @@ flowchart TB
         USERS["<b>users</b><br/>Criar · Editar · Desativar<br/><small>Utilizador · Papel</small><br/><i>UserRepo</i>"]
         CAT["<b>catalog</b><br/>Produtos · Categorias<br/><small>Produto · IVA · Unidade · Época</small><br/><i>ProductRepo</i>"]
         INV["<b>inventory</b><br/>Entrada · Ajuste · Consulta · Alertas<br/><small>Lote · FEFO · Movimento</small><br/><i>Repo · Products · AlertDays<br/>Recipients · Notifier</i>"]
-        SALES["<b>sales</b><br/>Registar · Anular<br/><small>Venda · Linha · Pagamento</small><br/><i>SaleRepo · TxManager</i>"]
+        SALES["<b>sales</b><br/>Registar · Anular<br/><small>Venda · Linha · Pagamento</small><br/><i>Repo · Products · Stock</i>"]
         REP["<b>reports</b><br/>Por período · Top produtos<br/><small>modelos de leitura</small><br/><i>ReportQuery</i>"]
         AUD["<b>audit</b><br/>Registar · Pesquisar<br/><small>Evento</small><br/><i>AuditRepo</i>"]
     end
@@ -51,7 +51,7 @@ flowchart TB
 
 As dependências apontam para dentro: o domínio não importa nada de HTTP nem de SQL. Os adaptadores implementam as portas, por isso os serviços testam-se com fakes em memória e os repositórios com PostgreSQL real (testcontainers).
 
-`inventory` e `sales` estão em destaque porque partilham a transação da venda: `sales` chama o serviço de `inventory` dentro do mesmo `TxManager`.
+`inventory` e `sales` estão em destaque porque partilham a transação da venda: o store do `sales` abre a transação, grava a venda e passa o `pgx.Tx` à porta `Stock`, que na composição é o `inventory.PostgresStore.TakeForSale` (bloqueia os lotes por FEFO e grava os movimentos). O `sales` nunca lê as tabelas do stock, e o `inventory` nunca lê as das vendas.
 
 ## Alertas diários
 
@@ -89,7 +89,7 @@ O dia de Lisboa, a janela das 07:00 e a unicidade são da API, não do agendamen
 internal/sales/
 ├── domain.go      entidades, value objects e regras (sem dependências externas)
 ├── service.go     casos de uso; recebe as portas por injeção
-├── ports.go       interfaces que o módulo precisa (SaleRepo, TxManager…)
+├── ports.go       interfaces que o módulo precisa (Repo, Products…)
 ├── errors.go      erros de domínio tipados
 ├── postgres.go    adaptador PostgreSQL (usa o código gerado pelo sqlc)
 ├── http.go        handlers: traduz DTOs e erros
@@ -127,14 +127,14 @@ Se o `/healthz` dependesse da base de dados, uma falha na Neon faria a Render re
 
 - Um módulo só importa de outro módulo a **interface do seu serviço**, nunca o repositório nem os tipos internos.
 - `domain.go` não importa `net/http`, `database/sql`, `pgx` nem outro módulo.
-- Quando dois módulos precisam um do outro, cada um declara a porta de que precisa e a composição (`internal/app`) liga-os: o `inventory` pergunta ao serviço do `catalog` pelos produtos (`Products`: nome, unidade, limiar de stock baixo), e o catálogo público pergunta ao `inventory` quanto stock há (`StockSource`). Os destinatários dos alertas são os gestores ativos, pedidos ao `users` pela porta `Recipients`. Nenhum lê as tabelas do outro.
+- Quando dois módulos precisam um do outro, cada um declara a porta de que precisa e a composição (`internal/app`) liga-os: o `inventory` pergunta ao serviço do `catalog` pelos produtos (`Products`: nome, unidade, limiar de stock baixo), e o catálogo público pergunta ao `inventory` quanto stock há (`StockSource`). Os destinatários dos alertas são os gestores ativos, pedidos ao `users` pela porta `Recipients`. As vendas pedem o preço e o IVA ao `catalog` (`sales.Products`) e tiram o stock pelo `inventory` (`sales.Stock`, dentro da transação da venda). Nenhum lê as tabelas do outro.
 - Estas regras são verificadas no CI com `depguard` (golangci-lint).
 
 ## Convenções
 
 - **Erros de domínio tipados** (`ErrInsufficientStock`, `ErrForbidden`…), traduzidos para HTTP só no adaptador.
 - **Contexto em todas as chamadas**, com timeout por pedido e cancelamento propagado até à BD.
-- **Idempotência** em `POST /sales` através da `Idempotency-Key`, guardada 24 h.
+- **Idempotência** em `POST /sales` através da `Idempotency-Key`, única por utilizador e guardada com a venda ([modelo de dados](data-model.md)).
 - **Concorrência no stock:** `SELECT … FOR UPDATE` nos lotes, ordenados por validade, dentro da transação.
 - **Configuração por variáveis de ambiente**, validada no arranque: a API recusa arrancar se faltar um segredo.
 - **Logs** com `log/slog` em JSON, sempre com `request_id`; nunca palavras-passe, tokens nem cookies.

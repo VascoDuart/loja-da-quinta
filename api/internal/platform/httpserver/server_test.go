@@ -32,7 +32,7 @@ func newTestServer(t *testing.T, dbErr error) *httptest.Server {
 		t.Fatal(err)
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	h, err := httpserver.NewHandler(cfg, log, httpapi.New(health.NewHandler(fakeDB{dbErr}, log, "test"), nil, nil, nil, nil), httpserver.Security{})
+	h, err := httpserver.NewHandler(cfg, log, httpapi.New(health.NewHandler(fakeDB{dbErr}, log, "test"), nil, nil, nil, nil, nil), httpserver.Security{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,18 +57,18 @@ func TestHealthz(t *testing.T) {
 	srv := newTestServer(t, nil)
 	res, body := get(t, srv.URL+"/api/v1/healthz")
 	if res.StatusCode != 200 || body["status"] != "ok" {
-		t.Fatalf("status = %d, corpo = %v", res.StatusCode, body)
+		t.Fatalf("status = %d, body = %v", res.StatusCode, body)
 	}
 	if res.Header.Get("X-Request-ID") == "" {
-		t.Error("falta o X-Request-ID")
+		t.Error("missing X-Request-ID")
 	}
 	if res.Header.Get("X-Content-Type-Options") != "nosniff" {
-		t.Error("faltam os cabeçalhos de segurança")
+		t.Error("missing security headers")
 	}
 }
 
 func TestReadyzWithDatabaseDown(t *testing.T) {
-	srv := newTestServer(t, errors.New("ligação recusada"))
+	srv := newTestServer(t, errors.New("connection refused"))
 	res, body := get(t, srv.URL+"/api/v1/readyz")
 	if res.StatusCode != 503 {
 		t.Fatalf("status = %d", res.StatusCode)
@@ -77,17 +77,17 @@ func TestReadyzWithDatabaseDown(t *testing.T) {
 		t.Errorf("Content-Type = %q", ct)
 	}
 	if body["instance"] != res.Header.Get("X-Request-ID") {
-		t.Errorf("o instance devia ser o request ID: %v", body)
+		t.Errorf("instance should be the request ID: %v", body)
 	}
 }
 
 func TestUnknownPathReturnsProblem(t *testing.T) {
 	srv := newTestServer(t, nil)
-	res, body := get(t, srv.URL+"/api/v1/nao-existe")
+	res, body := get(t, srv.URL+"/api/v1/does-not-exist")
 	if res.StatusCode != 404 || res.Header.Get("Content-Type") != "application/problem+json" {
 		t.Fatalf("status = %d, Content-Type = %q", res.StatusCode, res.Header.Get("Content-Type"))
 	}
 	if body["title"] != "Not Found" {
-		t.Errorf("corpo = %v", body)
+		t.Errorf("body = %v", body)
 	}
 }

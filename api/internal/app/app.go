@@ -1,6 +1,7 @@
-// Package app compõe a API: cria os adaptadores, injeta-os nos módulos e
-// devolve o handler HTTP. É o mesmo código no cmd/api e nos testes de
-// integração, para os testes exercitarem exatamente o que vai para produção.
+// Package app composes the API: it creates the adapters, injects them into
+// the modules and returns the HTTP handler. It is the same code in cmd/api and
+// in the integration tests, so the tests exercise exactly what goes to
+// production.
 package app
 
 import (
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/VascoDuart/loja-da-quinta/api/internal/auth"
@@ -21,14 +23,15 @@ import (
 	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/config"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/httpserver"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/platform/password"
+	"github.com/VascoDuart/loja-da-quinta/api/internal/sales"
 	"github.com/VascoDuart/loja-da-quinta/api/internal/users"
 )
 
-// Cálculos de argon2id em simultâneo: 4 × 19 MiB cabem folgados nos 512 MiB
-// do plano gratuito da Render.
+// Concurrent argon2id computations: 4 × 19 MiB fit easily in the 512 MiB of
+// Render's free plan.
 const maxConcurrentHashes = 4
 
-// Option troca uma peça da composição. Só os testes de integração as usam.
+// Option swaps a piece of the composition. Only the integration tests use them.
 type Option func(*options)
 
 type options struct {
@@ -36,13 +39,13 @@ type options struct {
 	notifier inventory.Notifier
 }
 
-// WithClock fixa o relógio do stock e dos alertas.
+// WithClock fixes the clock of the stock, the sales and the alerts.
 func WithClock(now func() time.Time) Option { return func(o *options) { o.now = now } }
 
-// WithNotifier troca o envio dos alertas por outro (um fake).
+// WithNotifier swaps how alerts are sent (for a fake).
 func WithNotifier(n inventory.Notifier) Option { return func(o *options) { o.notifier = n } }
 
-// New devolve o handler HTTP completo da API.
+// New returns the complete HTTP handler of the API.
 func New(ctx context.Context, cfg config.Config, log *slog.Logger, pool *pgxpool.Pool, opts ...Option) (http.Handler, error) {
 	o := options{now: time.Now}
 	for _, opt := range opts {
@@ -55,23 +58,29 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, pool *pgxpool
 	if err != nil {
 		return nil, err
 	}
-	// O users usa o store das sessões para as terminar (desativar, mudar o
-	// papel); o auth usa o users para verificar credenciais.
+	// users uses the session store to end sessions (deactivating a user,
+	// changing the role); auth uses users to check credentials.
 	sessions := auth.NewPostgresStore(pool)
 	userSvc, err := users.NewService(ctx, users.NewPostgresRepo(pool), password.New(password.OWASP, maxConcurrentHashes), sessions)
 	if err != nil {
 		return nil, err
 	}
 	authSvc := auth.NewService(userSvc, sessions, tokens, log)
-	// O stock pergunta ao catálogo pelos produtos, e o catálogo pergunta ao
-	// stock quanto há e se um produto tem lotes: cada um só conhece o serviço
-	// do outro.
+	// The stock asks the catalog for the products, and the catalog asks the
+	// stock how much there is and whether a product has lots: each one only
+	// knows the other's service.
 	catalogStore := catalog.NewPostgresStore(pool)
 	catalogSvc := catalog.NewService(catalogStore, catalogStore)
 	inventoryStore := inventory.NewPostgresStore(pool)
 	inventorySvc := inventory.NewService(inventoryStore, catalogProducts{catalogSvc}, o.now)
 	catalogSvc.WithStock(inventorySvc)
 	alerts := inventory.NewAlerts(inventorySvc, inventoryStore, newRecipients(cfg, userSvc), o.notifier, log)
+	// A sale prices its lines with the catalog and takes the stock through
+	// the inventory store, inside the sale's own transaction.
+	salesSvc := sales.NewService(
+		sales.NewPostgresStore(pool, saleStock{store: inventoryStore, now: o.now}),
+		saleProducts{catalogSvc},
+	)
 
 	api := httpapi.New(
 		health.NewHandler(pool, log, cfg.Version),
@@ -79,6 +88,7 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, pool *pgxpool
 		users.NewEndpoints(userSvc),
 		catalog.NewEndpoints(catalogSvc),
 		inventory.NewEndpoints(inventorySvc, alerts),
+		sales.NewEndpoints(salesSvc),
 	)
 	return httpserver.NewHandler(cfg, log, api, httpserver.Security{
 		Authenticate: authSvc.Authenticate,
@@ -86,19 +96,19 @@ func New(ctx context.Context, cfg config.Config, log *slog.Logger, pool *pgxpool
 	})
 }
 
-// newTokens lê a chave dos access tokens. Localmente, sem chave, usa uma
-// temporária; a configuração já recusa arrancar sem ela nos outros
-// ambientes.
+// newTokens reads the access token key. Locally, without a key, it uses a
+// temporary one; the configuration already refuses to start without it in
+// the other environments.
 func newTokens(cfg config.Config, log *slog.Logger) (*auth.JWT, error) {
 	if cfg.JWTSigningKey == "" {
-		log.Warn("sem JWT_SIGNING_KEY: a usar uma chave temporária (só em desenvolvimento)")
+		log.Warn("no JWT_SIGNING_KEY: using a temporary key (development only)")
 		return auth.NewEphemeralJWT(), nil
 	}
 	return auth.NewJWT(cfg.JWTSigningKey, cfg.JWTVerifyKeys)
 }
 
-// catalogProducts dá ao stock o que ele precisa de um produto, a partir do
-// serviço do catálogo (o inventory nunca lê a tabela products).
+// catalogProducts gives the stock what it needs from a product, from the
+// catalog service (inventory never reads the products table).
 type catalogProducts struct{ svc *catalog.Service }
 
 func (c catalogProducts) Product(ctx context.Context, id uuid.UUID) (inventory.Product, error) {
@@ -129,4 +139,47 @@ func stockProduct(p catalog.Product) inventory.Product {
 		ID: p.ID, Name: p.Name, Unit: string(p.Unit), Decimal: p.Unit.Decimal(), Active: p.Active,
 		LowStockMilli: p.LowStockMilli,
 	}
+}
+
+// saleProducts gives sales the catalog's products: name, unit, price and VAT
+// (the sales module never reads the products table).
+type saleProducts struct{ svc *catalog.Service }
+
+func (c saleProducts) ProductsByID(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]sales.Product, error) {
+	out := make(map[uuid.UUID]sales.Product, len(ids))
+	for _, id := range ids {
+		p, err := c.svc.GetProduct(ctx, id)
+		if errors.Is(err, catalog.ErrNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		out[id] = sales.Product{
+			ID: p.ID, Name: p.Name, Unit: string(p.Unit), Decimal: p.Unit.Decimal(), Active: p.Active,
+			PriceCents: int64(p.PriceCents), VatRate: p.VatRate,
+		}
+	}
+	return out, nil
+}
+
+// saleStock takes a sale's stock with the inventory store, in the sale's
+// transaction, and turns a shortage into the sales module's error. "Today" is
+// the day in Lisbon on the stock's clock.
+type saleStock struct {
+	store *inventory.PostgresStore
+	now   func() time.Time
+}
+
+func (s saleStock) TakeForSale(ctx context.Context, tx pgx.Tx, saleID, userID uuid.UUID, lines []sales.StockLine) error {
+	take := inventory.SaleTake{SaleID: saleID, UserID: userID, Today: inventory.Day(s.now()), Lines: make([]inventory.SaleLine, len(lines))}
+	for i, l := range lines {
+		take.Lines[i] = inventory.SaleLine{ProductID: l.ProductID, QuantityMilli: l.QuantityMilli}
+	}
+	err := s.store.TakeForSale(ctx, tx, take)
+	var short *inventory.ShortageError
+	if errors.As(err, &short) {
+		return &sales.InsufficientStockError{ProductID: short.ProductID, AvailableMilli: short.AvailableMilli, Unit: short.Unit}
+	}
+	return err
 }

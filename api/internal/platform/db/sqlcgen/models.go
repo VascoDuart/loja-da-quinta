@@ -54,6 +54,33 @@ type RefreshToken struct {
 	CreatedAt time.Time
 }
 
+type Sale struct {
+	ID             uuid.UUID
+	Number         string
+	UserID         uuid.UUID
+	Payment        string
+	TotalCents     int64
+	VatCents       int64
+	Status         string
+	IdempotencyKey string
+	RequestHash    []byte
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+type SaleItem struct {
+	ID             uuid.UUID
+	SaleID         uuid.UUID
+	ProductID      uuid.UUID
+	ProductName    string
+	Unit           string
+	Quantity       pgtype.Numeric
+	UnitPriceCents int64
+	VatRate        int16
+	LineTotalCents int64
+	VatCents       int64
+}
+
 type StockAlertRun struct {
 	Day       time.Time
 	CreatedAt time.Time
@@ -79,6 +106,7 @@ type StockMovement struct {
 	UserID    uuid.UUID
 	Reason    *string
 	CreatedAt time.Time
+	SaleID    pgtype.UUID
 }
 
 type User struct {
