@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const addToLot = `-- name: AddToLot :one
@@ -35,9 +36,9 @@ type AddToLotRow struct {
 	CreatedAt        time.Time
 }
 
-// Soma ao que resta no lote (delta com sinal). Usa-se só com o lote
-// bloqueado (LockLot) e depois de o serviço ver que não fica negativo; o
-// CHECK (qty_left >= 0) é a última defesa.
+// Adds a signed delta to what is left in the lot. Used only with the lot
+// locked (LockLot, LockSellableLots) and after checking that it does not go
+// negative; the CHECK (qty_left >= 0) is the last line of defence.
 func (q *Queries) AddToLot(ctx context.Context, arg AddToLotParams) (AddToLotRow, error) {
 	row := q.db.QueryRow(ctx, addToLot, arg.DeltaMilli, arg.ID)
 	var i AddToLotRow
@@ -59,8 +60,9 @@ INSERT INTO stock_alert_runs (day) VALUES ($1::date)
 ON CONFLICT (day) DO NOTHING
 `
 
-// Reserva o dia do alerta. 0 linhas: o dia já estava marcado. Com outro
-// pedido a meio de inserir o mesmo dia, espera que ele confirme ou desista.
+// Claims the alert day. 0 rows: the day was already claimed. With another
+// request halfway through inserting the same day, waits for it to commit or
+// roll back.
 func (q *Queries) ClaimAlertDay(ctx context.Context, day time.Time) (int64, error) {
 	result, err := q.db.Exec(ctx, claimAlertDay, day)
 	if err != nil {
@@ -131,14 +133,14 @@ type InsertLotRow struct {
 	CreatedAt        time.Time
 }
 
-// Queries do módulo inventory. Só este módulo lê ou escreve stock_lots e
-// stock_movements.
+// Queries of the inventory module. Only this module reads or writes
+// stock_lots and stock_movements.
 //
-// As quantidades saem e entram em milésimos inteiros (…_milli), como o
-// dinheiro em cêntimos (ADR-0009): nunca há vírgula flutuante entre a base de
-// dados e a API.
-// A unidade é a do produto quando a quantidade foi validada: se entretanto
-// mudou, a chave estrangeira (product_id, unit) recusa o lote (00005).
+// Quantities go in and out as integer thousandths (…_milli), like money in
+// cents (ADR-0009): there is never floating point between the database and
+// the API.
+// The unit is the product's when the quantity was validated: if it changed
+// meanwhile, the (product_id, unit) foreign key rejects the lot (00005).
 func (q *Queries) InsertLot(ctx context.Context, arg InsertLotParams) (InsertLotRow, error) {
 	row := q.db.QueryRow(ctx, insertLot,
 		arg.ProductID,
@@ -162,9 +164,9 @@ func (q *Queries) InsertLot(ctx context.Context, arg InsertLotParams) (InsertLot
 }
 
 const insertMovement = `-- name: InsertMovement :one
-INSERT INTO stock_movements (lot_id, type, quantity, user_id, reason)
+INSERT INTO stock_movements (lot_id, type, quantity, user_id, reason, sale_id)
 VALUES ($1, $2, $3::bigint::numeric / 1000,
-        $4, $5)
+        $4, $5, $6)
 RETURNING id, created_at
 `
 
@@ -174,6 +176,7 @@ type InsertMovementParams struct {
 	QuantityMilli int64
 	UserID        uuid.UUID
 	Reason        *string
+	SaleID        pgtype.UUID
 }
 
 type InsertMovementRow struct {
@@ -181,6 +184,7 @@ type InsertMovementRow struct {
 	CreatedAt time.Time
 }
 
+// sale_id is set for sale (venda) and void (anulacao) movements only.
 func (q *Queries) InsertMovement(ctx context.Context, arg InsertMovementParams) (InsertMovementRow, error) {
 	row := q.db.QueryRow(ctx, insertMovement,
 		arg.LotID,
@@ -188,6 +192,7 @@ func (q *Queries) InsertMovement(ctx context.Context, arg InsertMovementParams) 
 		arg.QuantityMilli,
 		arg.UserID,
 		arg.Reason,
+		arg.SaleID,
 	)
 	var i InsertMovementRow
 	err := row.Scan(&i.ID, &i.CreatedAt)
@@ -220,10 +225,10 @@ type ListLotsRow struct {
 	CreatedAt        time.Time
 }
 
-// Lotes de um produto para os ajustes: os que ainda têm stock (também fora
-// de validade, para a quebra) e os que ainda estão dentro da validade (um
-// lote posto a 0 por engano ainda se corrige). Pela ordem em que o stock sai
-// (FEFO), no máximo 200.
+// Lots of a product for adjustments: those that still have stock (expired
+// ones too, for breakage) and those still within their expiry date (a lot set
+// to 0 by mistake can still be corrected). In the order stock goes out
+// (FEFO), at most 200.
 func (q *Queries) ListLots(ctx context.Context, arg ListLotsParams) ([]ListLotsRow, error) {
 	rows, err := q.db.Query(ctx, listLots, arg.ProductID, arg.Today)
 	if err != nil {
@@ -272,9 +277,9 @@ type ListStockedLotsRow struct {
 	CreatedAt        time.Time
 }
 
-// Todos os lotes com stock (também os fora de validade), por produto e pela
-// ordem FEFO: a base da consulta do stock e dos alertas (#14). Sem limite: as
-// somas do stock têm de contar todos os lotes.
+// Every lot with stock (expired ones too), per product and in FEFO order:
+// the basis of the stock overview and the alerts (#14). No limit: the stock
+// totals must count every lot.
 func (q *Queries) ListStockedLots(ctx context.Context) ([]ListStockedLotsRow, error) {
 	rows, err := q.db.Query(ctx, listStockedLots)
 	if err != nil {
@@ -323,9 +328,9 @@ type LockLotRow struct {
 	CreatedAt        time.Time
 }
 
-// Bloqueia o lote até ao fim da transação: quem quiser mexer no mesmo lote
-// (outro ajuste, uma venda) espera, e depois lê o que restar. É a base de
-// todas as saídas de stock (ajustes, quebras e, no #15, as vendas por FEFO).
+// Locks the lot until the end of the transaction: whoever wants to change the
+// same lot (another adjustment, a sale) waits, and then reads what is left.
+// It is the basis of every stock outflow (adjustments, breakage).
 func (q *Queries) LockLot(ctx context.Context, id uuid.UUID) (LockLotRow, error) {
 	row := q.db.QueryRow(ctx, lockLot, id)
 	var i LockLotRow
@@ -342,11 +347,72 @@ func (q *Queries) LockLot(ctx context.Context, id uuid.UUID) (LockLotRow, error)
 	return i, err
 }
 
+const lockSellableLots = `-- name: LockSellableLots :many
+SELECT id, product_id, unit, (qty_received * 1000)::bigint AS qty_received_milli,
+       (qty_left * 1000)::bigint AS qty_left_milli, harvested_on, expires_on, created_at
+FROM stock_lots
+WHERE product_id = $1
+  AND qty_left > 0
+  AND expires_on >= $2::date
+ORDER BY expires_on, created_at, id
+FOR UPDATE
+`
+
+type LockSellableLotsParams struct {
+	ProductID uuid.UUID
+	Today     time.Time
+}
+
+type LockSellableLotsRow struct {
+	ID               uuid.UUID
+	ProductID        uuid.UUID
+	Unit             string
+	QtyReceivedMilli int64
+	QtyLeftMilli     int64
+	HarvestedOn      time.Time
+	ExpiresOn        time.Time
+	CreatedAt        time.Time
+}
+
+// Sellable lots of a product, locked until the end of the transaction, in
+// the order a sale takes stock (FEFO: earliest expiry first). A sale locks
+// its products in id order and each product's lots in this order, so two
+// sales always lock in the same order and never deadlock.
+func (q *Queries) LockSellableLots(ctx context.Context, arg LockSellableLotsParams) ([]LockSellableLotsRow, error) {
+	rows, err := q.db.Query(ctx, lockSellableLots, arg.ProductID, arg.Today)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LockSellableLotsRow{}
+	for rows.Next() {
+		var i LockSellableLotsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProductID,
+			&i.Unit,
+			&i.QtyReceivedMilli,
+			&i.QtyLeftMilli,
+			&i.HarvestedOn,
+			&i.ExpiresOn,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const productHasLots = `-- name: ProductHasLots :one
 SELECT EXISTS (SELECT 1 FROM stock_lots WHERE product_id = $1)
 `
 
-// Se o produto tem algum lote (com ou sem stock): a unidade dele já não muda.
+// Whether the product has any lot (with or without stock): its unit can no
+// longer change.
 func (q *Queries) ProductHasLots(ctx context.Context, productID uuid.UUID) (bool, error) {
 	row := q.db.QueryRow(ctx, productHasLots, productID)
 	var exists bool
@@ -358,7 +424,7 @@ const releaseAlertDay = `-- name: ReleaseAlertDay :exec
 DELETE FROM stock_alert_runs WHERE day = $1::date
 `
 
-// Liberta o dia quando o envio falhou, para se voltar a tentar.
+// Releases the day when sending failed, so it is tried again.
 func (q *Queries) ReleaseAlertDay(ctx context.Context, day time.Time) error {
 	_, err := q.db.Exec(ctx, releaseAlertDay, day)
 	return err
@@ -383,9 +449,9 @@ type StockByProductRow struct {
 	StockMilli int64
 }
 
-// Stock disponível por produto: a soma do que resta nos lotes ainda dentro
-// da validade (um lote que expira hoje ainda conta). Os produtos sem stock
-// não aparecem.
+// Sellable stock per product: the sum of what is left in the lots still
+// within their expiry date (a lot that expires today still counts). Products
+// without stock are left out.
 func (q *Queries) StockByProduct(ctx context.Context, arg StockByProductParams) ([]StockByProductRow, error) {
 	rows, err := q.db.Query(ctx, stockByProduct, arg.ProductIds, arg.Today)
 	if err != nil {

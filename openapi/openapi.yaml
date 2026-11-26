@@ -17,6 +17,8 @@ tags:
     description: Categorias, produtos e imagens (UC-03, ADR-0014)
   - name: inventory
     description: Stock por lotes, com colheita e validade (UC-04, ADR-0010)
+  - name: sales
+    description: Registo de vendas ao balcão (UC-06, ADR-0011). Não é um documento fiscal.
 paths:
   /healthz:
     get:
@@ -708,6 +710,62 @@ paths:
           $ref: "#/components/responses/Problem"
         "403":
           $ref: "#/components/responses/Problem"
+  /sales:
+    post:
+      tags: [sales]
+      operationId: createSale
+      summary: Regista uma venda ao balcão
+      description: |
+        O preço e o IVA de cada linha vêm sempre do catálogo (os preços já
+        incluem IVA); o cliente só envia o produto e a quantidade, em
+        milésimos da unidade. Cada linha é arredondada ao cêntimo (meio para
+        cima) e o total é a soma das linhas (ADR-0009). Linhas do mesmo
+        produto juntam-se numa só. Numa só transação, os lotes dentro da
+        validade de cada produto são bloqueados pela ordem da validade (FEFO,
+        ADR-0010), o stock é abatido e a venda, as linhas e os movimentos são
+        gravados. Sem stock que chegue de algum produto, responde 409 com o
+        produto e o que há, e não grava nada. A mesma Idempotency-Key (por
+        utilizador) nunca grava duas vendas: com o mesmo pedido devolve a
+        venda já gravada (200); com outro pedido responde 422.
+      security:
+        - bearerAuth: [funcionario, gestor]
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Identificador único do carrinho (por exemplo um UUID), igual em todas as tentativas do mesmo pedido.
+          schema:
+            type: string
+            pattern: "^[A-Za-z0-9_-]{16,64}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaleInput"
+      responses:
+        "201":
+          description: Venda registada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sale"
+        "200":
+          description: A venda já tinha sido registada com esta Idempotency-Key
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Sale"
+        "400":
+          $ref: "#/components/responses/Problem"
+        "401":
+          $ref: "#/components/responses/Problem"
+        "403":
+          $ref: "#/components/responses/Problem"
+        "409":
+          $ref: "#/components/responses/Problem"
+        "422":
+          $ref: "#/components/responses/Problem"
   /jobs/stock-alerts:
     post:
       tags: [inventory]
@@ -1056,6 +1114,92 @@ components:
           $ref: "#/components/schemas/ProductImage"
         availability:
           $ref: "#/components/schemas/Availability"
+    Payment:
+      type: string
+      enum: [numerario, mbway]
+    SaleInput:
+      type: object
+      additionalProperties: false
+      required: [payment, items]
+      properties:
+        payment:
+          $ref: "#/components/schemas/Payment"
+        items:
+          type: array
+          minItems: 1
+          maxItems: 50
+          items:
+            $ref: "#/components/schemas/SaleItemInput"
+    SaleItemInput:
+      type: object
+      additionalProperties: false
+      required: [productId, quantityMilli]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        quantityMilli:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 100000000
+          description: Quantidade em milésimos da unidade do produto (2500 = 2,5 kg). Para un, molho e duzia, múltiplo de 1000.
+    Sale:
+      type: object
+      required: [id, number, payment, status, totalCents, vatCents, createdAt, items]
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: string
+          description: Número interno do registo (V-000042). Não é um número de fatura.
+        payment:
+          $ref: "#/components/schemas/Payment"
+        status:
+          type: string
+          enum: [concluida, anulada]
+        totalCents:
+          type: integer
+          format: int64
+        vatCents:
+          type: integer
+          format: int64
+          description: IVA contido no total (soma do IVA de cada linha).
+        createdAt:
+          type: string
+          format: date-time
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SaleItem"
+    SaleItem:
+      type: object
+      required: [productId, productName, unit, quantityMilli, unitPriceCents, vatRate, lineTotalCents, vatCents]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        productName:
+          type: string
+          description: Nome do produto no momento da venda.
+        unit:
+          $ref: "#/components/schemas/Unit"
+        quantityMilli:
+          type: integer
+          format: int64
+        unitPriceCents:
+          type: integer
+          format: int64
+          description: Preço por unidade no momento da venda, com IVA.
+        vatRate:
+          $ref: "#/components/schemas/VatRate"
+        lineTotalCents:
+          type: integer
+          format: int64
+        vatCents:
+          type: integer
+          format: int64
     StockLotInput:
       type: object
       additionalProperties: false
